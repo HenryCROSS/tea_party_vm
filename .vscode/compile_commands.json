@@ -1,6 +1,0 @@
-[
-{
-  "directory": "/home/henry/workshop/tea_party_vm",
-  "arguments": ["/usr/bin/gcc", "-c", "-m64", "-o", "build/.objs/tea_party_vm/linux/x86_64/src/main.cpp.o", "src/main.cpp"],
-  "file": "src/main.cpp"
-}]
