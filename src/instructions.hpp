@@ -6,49 +6,55 @@
 namespace TPV {
 
 enum class Opcode : int8_t {
-  LOAD_I, // rd, 32bit addr
-  LOAD_D, // rd, 32bit addr
-  STORE_I, // r1, 32bit addr
-  STORE_D, // fr1, 32bit addr
-  ADD_I,  // rd, r1, r2
-  ADDI_I,  // rd, r1, imm
-  SUB_I,  // rd, r1, r2
-  MUL_I,  // rd, r1, r2
-  MULI_I,  // rd, r1, r2
-  DIV_I,  // rd, r1, r2
-  ADD_D,  // frd, fr1, fr2
-  ADDI_D,  // frd, fr1, imm
-  SUB_D,  // frd, fr1, fr2
-  MUL_D,  // frd, fr1, fr2
-  DIV_D,  // frd, fr1, fr2
+  LOADI, // rd, 32bit imm
+  LOADF, // rd, 32bit imm
+  LOADS, // rd, string / rd, str_table[idx]
+  ADD,  // rd, r1, r2
+  SUB,  // rd, r1, r2
+  MUL,  // rd, r1, r2
+  DIV,  // rd, r1, r2
   CVT_I_D,  // frd, r1
   CVT_D_I,  // rd, fr1
-  NEGATE_I,   //rd, r1
-  NEGATE_D,   //rd, r1
+  NEGATE,   //rd, r1
   HLT,
   JMP,   // 32bit
-  EQ_I,    // rd, r1, r2
-  NEQ_I,   // rd, r1, r2
-  GT_I,    // rd, r1, r2
-  GTE_I,   // rd, r1, r2
-  LT_I,    // rd, r1, r2
-  LTE_I,   // rd, r1, r2
-  EQ_D,    // rd, fr1, fr2
-  NEQ_D,   // rd, fr1, fr2
-  GT_D,    // rd, fr1, fr2
-  GTE_D,   // rd, fr1, fr2
-  LT_D,    // rd, fr1, fr2
-  LTE_D,   // rd, fr1, fr2
+  EQ,    // rd, r1, r2
+  NEQ,   // rd, r1, r2
+  GT,    // rd, r1, r2
+  GTE,   // rd, r1, r2
+  LT,    // rd, r1, r2
+  LTE,   // rd, r1, r2
+
+  BITAND, // rd, r1, r2
+  BITOR,  // rd, r1, r2
+  BITXOR, // rd, r1, r2
+  BITNOT, // rd, r1
+  BITSHL, // rd, r1, imm
+  BITSHRL, // rd, r1, imm
+  BITSHRA, // rd, r1, imm
+
+  // set register to variable
+  SET_LOCAL, 
+  GET_LOCAL,
+  SET_GLOBAL,
+  GET_GLOBAL,
+  SET_CONSTANT, // r1
+
   CALL,
   RETURN,
   CLOSURE,
-  SET_GLOBAL, // r1
-  SET_CONSTANT, // r1
-  SET_SUM, // number
-  SET_PRODUCT, // number
+
+  SET_SUM,
+  GET_SUM,
+
   SET_LIST,
-  SET_MAP,
+  GET_LIST,
+
+  SET_TABLE,
+  GET_TABLE,
+
   SET_ARRAY,
+  GET_ARRAY,
 
   IGL,
   NOP,

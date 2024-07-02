@@ -12,14 +12,14 @@ using std::vector;
 namespace TPV {
 
 VM::VM()
-    : registers_i(256),
-      registers_d(256),
-      bytes(),
+    : bytes(),
       str_table(),
-      stack(),
+      frames(MAX_FRAME),
       flags(),
       pc(0),
-      is_running(true) {}
+      is_running(true) {
+  this->frames.push_back({.stack = vector<Value>(256)});
+}
 
 uint8_t VM::next_8_bit() {
   auto byte = this->bytes.at(pc);
@@ -103,123 +103,183 @@ VM_Result VM::eval_all() {
     auto opcode = static_cast<Opcode>(byte);
 
     switch (opcode) {
-      case Opcode::LOAD_I: {
+      case Opcode::LOADI: {
         auto rd = this->next_8_bit();
         const auto val = this->next_32_bit();
 
-        this->registers_i.at(rd) = bytes_to_int32(val);
+        this->frames.back().stack.at(rd) = {.type = ValueType::TPV_INT,
+                                            .is_const = false,
+                                            .value = bytes_to_int32(val)};
 
         break;
       }
-      case Opcode::LOAD_D: {
+      case Opcode::LOADF: {
         auto rd = this->next_8_bit();
         const auto val = this->next_32_bit();
 
-        this->registers_d.at(rd) = bytes_to_float32(val);
+        this->frames.back().stack.at(rd) = {.type = ValueType::TPV_FLOAT,
+                                            .is_const = false,
+                                            .value = bytes_to_float32(val)};
 
         break;
       }
-      case Opcode::ADD_I: {
+      case Opcode::LOADS: {
         auto rd = this->next_8_bit();
-        const auto r1 = this->registers_i.at(this->next_8_bit());
-        const auto r2 = this->registers_i.at(this->next_8_bit());
+        const auto val = this->next_32_bit();
 
-        this->registers_i.at(rd) = r1 + r2;
+        // TODO
 
         break;
       }
-      case Opcode::SUB_I: {
+      case Opcode::ADD: {
         auto rd = this->next_8_bit();
-        const auto r1 = this->registers_i.at(this->next_8_bit());
-        const auto r2 = this->registers_i.at(this->next_8_bit());
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+        const auto r2 = this->frames.back().stack.at(this->next_8_bit());
 
-        this->registers_i.at(rd) = r1 - r2;
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == r2.type) {
+          if (r1.type == ValueType::TPV_INT) {
+            ref = from_raw_value(std::get<TPV_INT>(r1.value) +
+                                 std::get<TPV_INT>(r2.value));
+          } else if (r1.type == ValueType::TPV_FLOAT) {
+            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) +
+                                 std::get<TPV_FLOAT>(r2.value));
+          } else {
+            this->errors.push_back({});
+          }
+        } else {
+          this->errors.push_back({});
+        }
 
         break;
       }
-      case Opcode::MUL_I: {
+      case Opcode::SUB: {
         auto rd = this->next_8_bit();
-        const auto r1 = this->registers_i.at(this->next_8_bit());
-        const auto r2 = this->registers_i.at(this->next_8_bit());
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+        const auto r2 = this->frames.back().stack.at(this->next_8_bit());
 
-        this->registers_i.at(rd) = r1 * r2;
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == r2.type) {
+          if (r1.type == ValueType::TPV_INT) {
+            ref = from_raw_value(std::get<TPV_INT>(r1.value) -
+                                 std::get<TPV_INT>(r2.value));
+          } else if (r1.type == ValueType::TPV_FLOAT) {
+            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) -
+                                 std::get<TPV_FLOAT>(r2.value));
+          } else {
+            this->errors.push_back({});
+          }
+        } else {
+          this->errors.push_back({});
+        }
 
         break;
       }
-      case Opcode::DIV_I: {
+      case Opcode::MUL: {
         auto rd = this->next_8_bit();
-        const auto r1 = this->registers_i.at(this->next_8_bit());
-        const auto r2 = this->registers_i.at(this->next_8_bit());
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+        const auto r2 = this->frames.back().stack.at(this->next_8_bit());
 
-        this->registers_i.at(rd) = r1 / r2;
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == r2.type) {
+          if (r1.type == ValueType::TPV_INT) {
+            ref = from_raw_value(std::get<TPV_INT>(r1.value) *
+                                 std::get<TPV_INT>(r2.value));
+          } else if (r1.type == ValueType::TPV_FLOAT) {
+            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) *
+                                 std::get<TPV_FLOAT>(r2.value));
+          } else {
+            this->errors.push_back({});
+          }
+        } else {
+          this->errors.push_back({});
+        }
 
         break;
       }
-      case Opcode::ADD_D: {
+      case Opcode::DIV: {
         auto rd = this->next_8_bit();
-        const auto fr1 = this->registers_d.at(this->next_8_bit());
-        const auto fr2 = this->registers_d.at(this->next_8_bit());
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+        const auto r2 = this->frames.back().stack.at(this->next_8_bit());
 
-        this->registers_d.at(rd) = fr1 + fr2;
+        auto& ref = this->frames.back().stack.at(rd);
 
-        break;
-      }
-      case Opcode::SUB_D: {
-        auto rd = this->next_8_bit();
-        const auto fr1 = this->registers_d.at(this->next_8_bit());
-        const auto fr2 = this->registers_d.at(this->next_8_bit());
-
-        this->registers_d.at(rd) = fr1 - fr2;
-
-        break;
-      }
-      case Opcode::MUL_D: {
-        auto rd = this->next_8_bit();
-        const auto fr1 = this->registers_d.at(this->next_8_bit());
-        const auto fr2 = this->registers_d.at(this->next_8_bit());
-
-        this->registers_d.at(rd) = fr1 * fr2;
-
-        break;
-      }
-      case Opcode::DIV_D: {
-        auto rd = this->next_8_bit();
-        const auto fr1 = this->registers_d.at(this->next_8_bit());
-        const auto fr2 = this->registers_d.at(this->next_8_bit());
-
-        this->registers_d.at(rd) = fr1 / fr2;
+        if (r1.type == r2.type) {
+          if (r1.type == ValueType::TPV_INT) {
+            if (std::get<TPV_INT>(r2.value) == 0) {
+              this->errors.push_back({});
+            } else {
+              ref = from_raw_value(std::get<TPV_INT>(r1.value) /
+                                   std::get<TPV_INT>(r2.value));
+            }
+          } else if (r1.type == ValueType::TPV_FLOAT) {
+            if (std::get<TPV_FLOAT>(r2.value) == 0.0) {
+              this->errors.push_back({});
+            } else {
+              ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) /
+                                   std::get<TPV_FLOAT>(r2.value));
+            }
+          } else {
+            this->errors.push_back({});
+          }
+        } else {
+          this->errors.push_back({});
+        }
 
         break;
       }
       case Opcode::CVT_I_D: {
         auto rd = this->next_8_bit();
-        const auto r1 = this->registers_i.at(this->next_8_bit());
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
 
-        this->registers_d.at(rd) = r1;
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == ValueType::TPV_INT) {
+          ref = from_raw_value(
+              static_cast<TPV_FLOAT>(std::get<TPV_FLOAT>(r1.value)));
+        } else if (r1.type == ValueType::TPV_FLOAT) {
+          ref = r1;
+        } else {
+          this->errors.push_back({});
+        }
 
         break;
       }
       case Opcode::CVT_D_I: {
         auto rd = this->next_8_bit();
-        const auto fr1 = this->registers_d.at(this->next_8_bit());
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
 
-        this->registers_i.at(rd) = fr1;
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == ValueType::TPV_INT) {
+          ref = r1;
+        } else if (r1.type == ValueType::TPV_FLOAT) {
+          this->frames.back().stack.at(rd) = from_raw_value(
+              static_cast<TPV_FLOAT>(std::get<TPV_INT>(r1.value)));
+        } else {
+          this->errors.push_back({});
+        }
 
         break;
       }
-      case Opcode::NEGATE_I: {
+      case Opcode::NEGATE: {
         auto rd = this->next_8_bit();
-        const auto r1 = this->registers_i.at(this->next_8_bit());
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
 
-        this->registers_i.at(rd) = -r1;
+        auto& ref = this->frames.back().stack.at(rd);
 
-        break;
-      }
-      case Opcode::NEGATE_D: {
-        auto rd = this->next_8_bit();
-        const auto fr1 = this->registers_d.at(this->next_8_bit());
-
-        this->registers_d.at(rd) = -fr1;
+        if (r1.type == ValueType::TPV_INT) {
+          this->frames.back().stack.at(rd) = from_raw_value(
+              static_cast<TPV_FLOAT>(-std::get<TPV_INT>(r1.value)));
+        } else if (r1.type == ValueType::TPV_FLOAT) {
+          this->frames.back().stack.at(rd) = from_raw_value(
+              static_cast<TPV_FLOAT>(-std::get<TPV_FLOAT>(r1.value)));
+        } else {
+          this->errors.push_back({});
+        }
 
         break;
       }
@@ -233,119 +293,167 @@ VM_Result VM::eval_all() {
         this->pc = new_pc;
         break;
       }
-      case Opcode::EQ_I: {
+      case Opcode::EQ: {
         auto rd = this->next_8_bit();
-        const auto r1 = this->registers_i.at(this->next_8_bit());
-        const auto r2 = this->registers_i.at(this->next_8_bit());
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+        const auto r2 = this->frames.back().stack.at(this->next_8_bit());
 
-        this->registers_i.at(rd) = r1 == r2;
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == r2.type) {
+          if (r1.type == ValueType::TPV_INT) {
+            ref = from_raw_value(std::get<TPV_INT>(r1.value) ==
+                                 std::get<TPV_INT>(r2.value));
+          } else if (r1.type == ValueType::TPV_FLOAT) {
+            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) ==
+                                 std::get<TPV_FLOAT>(r2.value));
+          } else {
+            this->errors.push_back({});
+          }
+        } else {
+          this->errors.push_back({});
+        }
 
         break;
       }
-      case Opcode::NEQ_I: {
+      case Opcode::NEQ: {
         auto rd = this->next_8_bit();
-        const auto r1 = this->registers_i.at(this->next_8_bit());
-        const auto r2 = this->registers_i.at(this->next_8_bit());
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+        const auto r2 = this->frames.back().stack.at(this->next_8_bit());
 
-        this->registers_i.at(rd) = r1 != r2;
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == r2.type) {
+          if (r1.type == ValueType::TPV_INT) {
+            ref = from_raw_value(std::get<TPV_INT>(r1.value) !=
+                                 std::get<TPV_INT>(r2.value));
+          } else if (r1.type == ValueType::TPV_FLOAT) {
+            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) !=
+                                 std::get<TPV_FLOAT>(r2.value));
+          } else {
+            this->errors.push_back({});
+          }
+        } else {
+          this->errors.push_back({});
+        }
 
         break;
       }
-      case Opcode::GT_I: {
+      case Opcode::GT: {
         auto rd = this->next_8_bit();
-        const auto r1 = this->registers_i.at(this->next_8_bit());
-        const auto r2 = this->registers_i.at(this->next_8_bit());
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+        const auto r2 = this->frames.back().stack.at(this->next_8_bit());
 
-        this->registers_i.at(rd) = r1 > r2;
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == r2.type) {
+          if (r1.type == ValueType::TPV_INT) {
+            ref = from_raw_value(std::get<TPV_INT>(r1.value) >
+                                 std::get<TPV_INT>(r2.value));
+          } else if (r1.type == ValueType::TPV_FLOAT) {
+            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) >
+                                 std::get<TPV_FLOAT>(r2.value));
+          } else {
+            this->errors.push_back({});
+          }
+        } else {
+          this->errors.push_back({});
+        }
 
         break;
       }
-      case Opcode::GTE_I: {
+      case Opcode::GTE: {
         auto rd = this->next_8_bit();
-        const auto r1 = this->registers_i.at(this->next_8_bit());
-        const auto r2 = this->registers_i.at(this->next_8_bit());
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+        const auto r2 = this->frames.back().stack.at(this->next_8_bit());
 
-        this->registers_i.at(rd) = r1 >= r2;
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == r2.type) {
+          if (r1.type == ValueType::TPV_INT) {
+            ref = from_raw_value(std::get<TPV_INT>(r1.value) >=
+                                 std::get<TPV_INT>(r2.value));
+          } else if (r1.type == ValueType::TPV_FLOAT) {
+            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) >=
+                                 std::get<TPV_FLOAT>(r2.value));
+          } else {
+            this->errors.push_back({});
+          }
+        } else {
+          this->errors.push_back({});
+        }
 
         break;
       }
-      case Opcode::LT_I: {
+      case Opcode::LT: {
         auto rd = this->next_8_bit();
-        const auto r1 = this->registers_i.at(this->next_8_bit());
-        const auto r2 = this->registers_i.at(this->next_8_bit());
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+        const auto r2 = this->frames.back().stack.at(this->next_8_bit());
 
-        this->registers_i.at(rd) = r1 < r2;
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == r2.type) {
+          if (r1.type == ValueType::TPV_INT) {
+            ref = from_raw_value(std::get<TPV_INT>(r1.value) <
+                                 std::get<TPV_INT>(r2.value));
+          } else if (r1.type == ValueType::TPV_FLOAT) {
+            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) <
+                                 std::get<TPV_FLOAT>(r2.value));
+          } else {
+            this->errors.push_back({});
+          }
+        } else {
+          this->errors.push_back({});
+        }
 
         break;
       }
-      case Opcode::LTE_I: {
+      case Opcode::LTE: {
         auto rd = this->next_8_bit();
-        const auto r1 = this->registers_i.at(this->next_8_bit());
-        const auto r2 = this->registers_i.at(this->next_8_bit());
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+        const auto r2 = this->frames.back().stack.at(this->next_8_bit());
 
-        this->registers_i.at(rd) = r1 <= r2;
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == r2.type) {
+          if (r1.type == ValueType::TPV_INT) {
+            ref = from_raw_value(std::get<TPV_INT>(r1.value) <=
+                                 std::get<TPV_INT>(r2.value));
+          } else if (r1.type == ValueType::TPV_FLOAT) {
+            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) <=
+                                 std::get<TPV_FLOAT>(r2.value));
+          } else {
+            this->errors.push_back({});
+          }
+        } else {
+          this->errors.push_back({});
+        }
 
         break;
       }
-      case Opcode::EQ_D: {
-        auto rd = this->next_8_bit();
-        const auto r1 = this->registers_d.at(this->next_8_bit());
-        const auto r2 = this->registers_d.at(this->next_8_bit());
-
-        this->registers_d.at(rd) = r1 == r2;
-
-        break;
-      }
-      case Opcode::NEQ_D: {
-        auto rd = this->next_8_bit();
-        const auto r1 = this->registers_d.at(this->next_8_bit());
-        const auto r2 = this->registers_d.at(this->next_8_bit());
-
-        this->registers_d.at(rd) = r1 != r2;
-
-        break;
-      }
-      case Opcode::GT_D: {
-        auto rd = this->next_8_bit();
-        const auto r1 = this->registers_d.at(this->next_8_bit());
-        const auto r2 = this->registers_d.at(this->next_8_bit());
-
-        this->registers_d.at(rd) = r1 > r2;
-
-        break;
-      }
-      case Opcode::GTE_D: {
-        auto rd = this->next_8_bit();
-        const auto r1 = this->registers_d.at(this->next_8_bit());
-        const auto r2 = this->registers_d.at(this->next_8_bit());
-
-        this->registers_d.at(rd) = r1 >= r2;
-
-        break;
-      }
-      case Opcode::LT_D: {
-        auto rd = this->next_8_bit();
-        const auto r1 = this->registers_d.at(this->next_8_bit());
-        const auto r2 = this->registers_d.at(this->next_8_bit());
-
-        this->registers_d.at(rd) = r1 < r2;
-
-        break;
-      }
-      case Opcode::LTE_D: {
-        auto rd = this->next_8_bit();
-        const auto r1 = this->registers_d.at(this->next_8_bit());
-        const auto r2 = this->registers_d.at(this->next_8_bit());
-
-        this->registers_d.at(rd) = r1 <= r2;
-
-        break;
-      }
+      case Opcode::BITAND:
+      case Opcode::BITOR:
+      case Opcode::BITXOR:
+      case Opcode::BITNOT:
+      case Opcode::BITSHL:
+      case Opcode::BITSHRL:
+      case Opcode::BITSHRA:
+      case Opcode::SET_LOCAL:
+      case Opcode::GET_LOCAL:
+      case Opcode::SET_GLOBAL:
+      case Opcode::GET_GLOBAL:
+      case Opcode::SET_CONSTANT:
       case Opcode::CALL:
       case Opcode::RETURN:
       case Opcode::CLOSURE:
-      case Opcode::SET_GLOBAL:
-      case Opcode::SET_CONSTANT:
+      case Opcode::SET_SUM:
+      case Opcode::GET_SUM:
+      case Opcode::SET_LIST:
+      case Opcode::GET_LIST:
+      case Opcode::SET_TABLE:
+      case Opcode::GET_TABLE:
+      case Opcode::SET_ARRAY:
+      case Opcode::GET_ARRAY:
       case Opcode::IGL:
       case Opcode::NOP:
         break;
@@ -360,12 +468,16 @@ VM_Result VM::eval_one() {
 }
 
 void VM::print_regs() {
-  for (int i = 0; i < this->registers_i.size(); i++) {
-    std::cout << "reg_i " << i << " : " << this->registers_i.at(i) << "\n";
-  }
+  for (int i = 0; i < this->frames.back().stack.size(); i++) {
+    auto&& ref = this->frames.back().stack.at(i);
 
-  for (int i = 0; i < this->registers_d.size(); i++) {
-    std::cout << "reg_d " << i << " : " << this->registers_d.at(i) << "\n";
+    if (ref.type == ValueType::TPV_INT) {
+      std::cout << "reg " << i << " : " << std::get<TPV_INT>(ref.value)
+                << "\n";
+    } else if (ref.type == ValueType::TPV_FLOAT) {
+      std::cout << "reg " << i << " : " << std::get<TPV_FLOAT>(ref.value)
+                << "\n";
+    }
   }
 }
 }  // namespace TPV

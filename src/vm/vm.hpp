@@ -8,32 +8,32 @@
 #include <variant>
 #include <vector>
 
-#include "../error_code.hpp"
 #include "../common.hpp"
+#include "../error_code.hpp"
 #include "../value.hpp"
 
 namespace TPV {
+const int32_t MAX_FRAME = 2048;
 
 struct FLAGS {
-  bool eq_flag;
-  bool is_true;
-  bool is_zero;
-}; 
+  bool eq_flag = false;
+  bool is_true = false;
+  bool is_zero = false;
+  bool is_panic = false;
+};
 
 // store each scope values
-struct Frame{
-  std::vector<Value> constants;
+struct Frame {
+  std::vector<Value> stack;
 };
 
 class VM {
  private:
  public:
-  std::vector<TPV_INT> registers_i;
-  std::vector<TPV_FLOAT> registers_d;
   std::vector<uint8_t> bytes;
-  // std::unordered_map<std::string, T> table;
-  std::vector<Value> stack;
+  std::vector<Frame> frames;
   std::unordered_map<int32_t, TPV_ObjString> str_table;
+  std::vector<Error> errors;
   FLAGS flags;
   uint32_t pc = 0;
   uint32_t code_begin = 0;

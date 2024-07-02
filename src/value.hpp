@@ -20,7 +20,10 @@ enum class ObjType {
   LIST,
   MAP,
   ARRAY,
+  UNIT
 };
+
+struct TPV_Unit {};
 
 struct TPV_ObjString {
   int32_t hash;
@@ -65,8 +68,24 @@ enum class ValueType { TPV_INT, TPV_FLOAT, BOOL, TPV_OBJ, TPV_UNIT };
 struct Value {
   ValueType type;
   bool is_const;
-  std::variant<std::shared_ptr<TPV_Obj>, TPV_INT, TPV_FLOAT, bool> value;
+  std::variant<TPV_INT, TPV_FLOAT, bool, std::shared_ptr<TPV_Obj>, TPV_Unit> value;
 };
+
+inline Value from_raw_value(TPV_INT val){
+  return {
+    .type = ValueType::TPV_INT,
+    .is_const = false,
+    .value = val,
+  };
+}
+
+inline Value from_raw_value(TPV_FLOAT val){
+  return {
+    .type = ValueType::TPV_FLOAT,
+    .is_const = false,
+    .value = val,
+  };
+}
 
 }  // namespace TPV
 
