@@ -6,10 +6,10 @@
 namespace TPV {
 
 enum class Opcode : int8_t {
-  LOAD_I, // rd, 32bit
-  LOAD_D, // rd, 32bit
-  STORE_I,
-  STORE_D,
+  LOAD_I, // rd, 32bit addr
+  LOAD_D, // rd, 32bit addr
+  STORE_I, // r1, 32bit addr
+  STORE_D, // fr1, 32bit addr
   ADD_I,  // rd, r1, r2
   ADDI_I,  // rd, r1, imm
   SUB_I,  // rd, r1, r2
