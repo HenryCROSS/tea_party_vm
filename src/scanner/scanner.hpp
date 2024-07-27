@@ -41,13 +41,14 @@ struct ErrType {
 };
 
 struct Token {
-    uint32_t absolute_begin, absolute_end;
-    uint32_t begin, end;
-    uint32_t line;
-    TokenType type;
-    std::variant<OpType, RegisterType, Int32Type, Float32Type, StringType, ErrType> value;
+  uint32_t absolute_begin, absolute_end;
+  uint32_t begin, end;
+  uint32_t line;
+  TokenType type;
+  std::
+      variant<OpType, RegisterType, Int32Type, Float32Type, StringType, ErrType>
+          value;
 };
-
 
 struct Tokens {
   std::vector<Token> tokens;
@@ -57,6 +58,10 @@ std::optional<Token> scan_register(std::string_view str, uint32_t start_pos);
 std::optional<Token> scan_int(std::string_view str, uint32_t start_pos);
 std::optional<Token> scan_float(std::string_view str, uint32_t start_pos);
 std::optional<Token> scan_opcode(std::string_view str, uint32_t start_pos);
+std::optional<Token> scan_string(std::string_view str,
+                                 uint32_t start_pos,
+                                 uint32_t absolute_pos,
+                                 uint32_t line);
 std::optional<Tokens> scan_all(std::string_view str);
 std::optional<Tokens> scan_file(const std::string& filename);
 
