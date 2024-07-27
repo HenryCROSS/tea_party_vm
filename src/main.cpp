@@ -1,4 +1,5 @@
 #include <iostream>
+#include "repl/repl.hpp"
 #include "scanner/scanner.hpp"
 #include "utils.hpp"
 #include "vm/vm.hpp"
@@ -25,11 +26,28 @@ int main(int argc, char** argv) {
   // mv.print_regs();
 
   if (argc < 2) {
-    std::cerr << "Usage: " << argv[0] << " <filename>" << std::endl;
-    return 1;
-  }
+        std::cerr << "Usage: " << argv[0] << " -repl | -c <filename1> [filename2] [...]" << std::endl;
+        return 1;
+    }
 
-  const char* filename = argv[1];
-  TPV::Test_Fn::test(filename);
-  return 0;
+    std::string option = argv[1];
+
+    if (option == "-repl") {
+        TPV::repl();
+    } else if (option == "-c") {
+        if (argc < 3) {
+            std::cerr << "Usage: " << argv[0] << " -c <filename1> [filename2] [...]" << std::endl;
+            return 1;
+        }
+        for (int i = 2; i < argc; ++i) {
+            const char* filename = argv[i];
+            TPV::Test_Fn::test(filename);
+        }
+    } else {
+        std::cerr << "Unknown option: " << option << std::endl;
+        std::cerr << "Usage: " << argv[0] << " -repl | -c <filename1> [filename2] [...]" << std::endl;
+        return 1;
+    }
+
+    return 0;
 }
