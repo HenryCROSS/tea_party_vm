@@ -125,10 +125,15 @@ VM_Result VM::eval_all() {
       }
       case Opcode::LOADS: {
         auto rd = this->next_8_bit();
-        const auto val = this->next_32_bit();
+        const auto idx = this->next_32_bit();
 
         // TODO
 
+        break;
+      }
+      case Opcode::STORES: {
+        const auto idx = this->next_32_bit();
+        // TODO
         break;
       }
       case Opcode::ADD: {
@@ -431,13 +436,133 @@ VM_Result VM::eval_all() {
 
         break;
       }
-      case Opcode::BITAND:
-      case Opcode::BITOR:
-      case Opcode::BITXOR:
-      case Opcode::BITNOT:
-      case Opcode::BITSHL:
-      case Opcode::BITSHRL:
-      case Opcode::BITSHRA:
+      case Opcode::BITAND: {
+        auto rd = this->next_8_bit();
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+        const auto r2 = this->frames.back().stack.at(this->next_8_bit());
+
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == r2.type) {
+          if (r1.type == ValueType::TPV_INT) {
+            ref = from_raw_value(std::get<TPV_INT>(r1.value) &
+                                 std::get<TPV_INT>(r2.value));
+          } else {
+            this->errors.push_back({});
+          }
+        } else {
+          this->errors.push_back({});
+        }
+
+        break;
+      }
+      case Opcode::BITOR: {
+        auto rd = this->next_8_bit();
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+        const auto r2 = this->frames.back().stack.at(this->next_8_bit());
+
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == r2.type) {
+          if (r1.type == ValueType::TPV_INT) {
+            ref = from_raw_value(std::get<TPV_INT>(r1.value) |
+                                 std::get<TPV_INT>(r2.value));
+          } else {
+            this->errors.push_back({});
+          }
+        } else {
+          this->errors.push_back({});
+        }
+
+        break;
+      }
+      case Opcode::BITXOR: {
+        auto rd = this->next_8_bit();
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+        const auto r2 = this->frames.back().stack.at(this->next_8_bit());
+
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == r2.type) {
+          if (r1.type == ValueType::TPV_INT) {
+            ref = from_raw_value(std::get<TPV_INT>(r1.value) ^
+                                 std::get<TPV_INT>(r2.value));
+          } else {
+            this->errors.push_back({});
+          }
+        } else {
+          this->errors.push_back({});
+        }
+
+        break;
+      }
+      case Opcode::BITNOT: {
+        auto rd = this->next_8_bit();
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == ValueType::TPV_INT) {
+          ref = from_raw_value(~std::get<TPV_INT>(r1.value));
+        } else {
+          this->errors.push_back({});
+        }
+
+        break;
+      }
+      case Opcode::BITSHL: {
+        auto rd = this->next_8_bit();
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+        const auto imm = bytes_to_int32(this->next_32_bit());
+
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == ValueType::TPV_INT) {
+          ref = from_raw_value(std::get<TPV_INT>(r1.value) << imm);
+        } else {
+          this->errors.push_back({});
+        }
+
+        break;
+      }
+      case Opcode::BITSHRL: {
+        auto rd = this->next_8_bit();
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+        const auto imm = bytes_to_int32(this->next_32_bit());
+
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == ValueType::TPV_INT) {
+          auto val = std::get<TPV_INT>(r1.value);
+
+          if (val < 0) {
+            auto result =
+                static_cast<std::make_unsigned_t<TPV_INT>>(val) >> imm;
+            ref = from_raw_value(static_cast<TPV_INT>(result));
+          } else {
+            ref = from_raw_value(val >> imm);
+          }
+        } else {
+          this->errors.push_back({});
+        }
+
+        break;
+      }
+      case Opcode::BITSHRA: {
+        auto rd = this->next_8_bit();
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+        const auto imm = bytes_to_int32(this->next_32_bit());
+
+        auto& ref = this->frames.back().stack.at(rd);
+
+        if (r1.type == ValueType::TPV_INT) {
+          ref = from_raw_value(std::get<TPV_INT>(r1.value) >> imm);
+        } else {
+          this->errors.push_back({});
+        }
+
+        break;
+      }
       case Opcode::SET_LOCAL:
       case Opcode::GET_LOCAL:
       case Opcode::SET_GLOBAL:
@@ -455,6 +580,7 @@ VM_Result VM::eval_all() {
       case Opcode::SET_ARRAY:
       case Opcode::GET_ARRAY:
       case Opcode::IGL:
+        break;
       case Opcode::NOP:
         break;
     }
@@ -472,8 +598,7 @@ void VM::print_regs() {
     auto&& ref = this->frames.back().stack.at(i);
 
     if (ref.type == ValueType::TPV_INT) {
-      std::cout << "reg " << i << " : " << std::get<TPV_INT>(ref.value)
-                << "\n";
+      std::cout << "reg " << i << " : " << std::get<TPV_INT>(ref.value) << "\n";
     } else if (ref.type == ValueType::TPV_FLOAT) {
       std::cout << "reg " << i << " : " << std::get<TPV_FLOAT>(ref.value)
                 << "\n";
