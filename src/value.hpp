@@ -26,7 +26,7 @@ enum class ObjType {
 struct TPV_Unit {};
 
 struct TPV_ObjString {
-  int32_t hash;
+  // size_t hash;
   std::string value;
 };
 
@@ -47,13 +47,13 @@ struct TPV_ObjArray {};
 
 struct TPV_Obj {
   ObjType type;
-  std::variant<TPV_ObjString,
-               TPV_ObjClosure,
-               TPV_ObjModule,
-               TPV_ObjFunc,
-               TPV_ObjUpvalue,
-               TPV_ObjSum,
-               TPV_ObjProduct>
+  std::variant<std::shared_ptr<TPV_ObjString>,
+               std::shared_ptr<TPV_ObjClosure>,
+               std::shared_ptr<TPV_ObjModule>,
+               std::shared_ptr<TPV_ObjFunc>,
+               std::shared_ptr<TPV_ObjUpvalue>,
+               std::shared_ptr<TPV_ObjSum>,
+               std::shared_ptr<TPV_ObjProduct>>
       obj;
 };
 
@@ -68,7 +68,7 @@ enum class ValueType { TPV_INT, TPV_FLOAT, BOOL, TPV_OBJ, TPV_UNIT };
 struct Value {
   ValueType type;
   bool is_const;
-  std::variant<TPV_INT, TPV_FLOAT, bool, std::shared_ptr<TPV_Obj>, TPV_Unit> value;
+  std::variant<TPV_INT, TPV_FLOAT, bool, TPV_Obj, TPV_Unit> value;
 };
 
 inline Value from_raw_value(TPV_INT val){

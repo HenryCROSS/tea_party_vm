@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <vector>
 #include "../error_code.hpp"
 #include "../instructions.hpp"
@@ -39,6 +40,18 @@ std::vector<uint8_t> VM::next_32_bit() {
                 this->next_8_bit()};
 
   return bytes;
+}
+
+std::vector<uint8_t> VM::next_string() {
+  std::vector<uint8_t> result;
+  while (true) {
+    uint8_t byte = this->next_8_bit();
+    if (byte == 0) {
+      break;
+    }
+    result.push_back(byte);
+  }
+  return result;
 }
 
 bool VM::load_bytes(const vector<uint8_t> instructions) {
@@ -125,15 +138,23 @@ VM_Result VM::eval_all() {
       }
       case Opcode::LOADS: {
         auto rd = this->next_8_bit();
-        const auto idx = this->next_32_bit();
+        const auto idx = bytes_to_int32(this->next_32_bit());
 
-        // TODO
+        auto& ref = this->frames.back().stack.at(rd);
+        this->frames.back().stack.at(rd) = {
+            .type = ValueType::TPV_OBJ,
+            .is_const = false,
+            .value = (TPV_Obj){.type = ObjType::STRING,
+                               .obj = this->str_table.at(idx)}};
 
         break;
       }
       case Opcode::STORES: {
-        const auto idx = this->next_32_bit();
-        // TODO
+        const auto idx = bytes_to_int32(this->next_32_bit());
+        const auto str = bytes_to_string(this->next_string());
+        this->str_table[idx] =
+            std::make_shared<TPV_ObjString>((TPV_ObjString){.value = str});
+
         break;
       }
       case Opcode::ADD: {

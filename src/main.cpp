@@ -3,8 +3,33 @@
 #include "scanner/scanner.hpp"
 #include "utils.hpp"
 #include "vm/vm.hpp"
+#include "parser/parser.hpp"
 
 using namespace std;
+
+void test2(const std::string& filename) {
+  auto tokens_opt = TPV::scan_file(filename);
+  if (tokens_opt) {
+    TPV::Parser parser{};
+    TPV::VM vm{};
+
+    TPV::Test_Fn::print_tokens(*tokens_opt);
+    parser.load_tokens(*tokens_opt);
+    auto result = parser.parse();
+    if(result.err_msg.empty()){
+      vm.load_bytes(result.bytecodes);
+      vm.eval_all();
+      vm.print_regs();
+    }else {
+      for (auto&& i : result.err_msg) {
+        std::cout << i << "\n";
+      }
+      vm.print_regs();
+    }
+  } else {
+    std::cerr << "Failed to scan file" << std::endl;
+  }
+}
 
 int main(int argc, char** argv) {
   // TPV::VM mv = TPV::VM();
@@ -41,7 +66,7 @@ int main(int argc, char** argv) {
         }
         for (int i = 2; i < argc; ++i) {
             const char* filename = argv[i];
-            TPV::Test_Fn::test(filename);
+            test2(filename);
         }
     } else {
         std::cerr << "Unknown option: " << option << std::endl;

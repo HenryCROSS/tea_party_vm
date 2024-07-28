@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <iostream>
 #include <type_traits>
 #include <vector>
@@ -28,7 +29,7 @@ inline std::vector<uint8_t> float32_to_bytes(float_t val) {
   memcpy(&value, &val, 4);
 
   std::vector<uint8_t> bytes(sizeof(int32_t));
-  
+
   for (size_t i = 0; i < sizeof(int32_t); ++i) {
     bytes[sizeof(int32_t) - 1 - i] = (value >> (i * 8)) & 0xFF;
   }
@@ -50,10 +51,25 @@ inline float_t bytes_to_float32(const std::vector<uint8_t>& bytes) {
     value |= (bytes[i] << (8 * (3 - i)));
   }
 
-  float result;
+  float_t result;
   memcpy(&result, &value, 4);
 
   return result;
+}
+
+inline std::string bytes_to_string(const std::vector<uint8_t>& bytes) {
+  std::string result;
+  for (uint8_t byte : bytes) {
+    if (byte == '\0') {
+      break;
+    }
+    result += static_cast<char>(byte);
+  }
+  return result;
+}
+
+inline std::size_t hash_string(const std::string& str) {
+  return std::hash<std::string>{}(str);
 }
 
 }  // namespace TPV

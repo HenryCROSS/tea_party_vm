@@ -32,7 +32,7 @@ class VM {
  public:
   std::vector<uint8_t> bytes;
   std::vector<Frame> frames;
-  std::unordered_map<int32_t, TPV_ObjString> str_table;
+  std::unordered_map<int32_t, std::shared_ptr<TPV_ObjString>> str_table;
   std::vector<Error> errors;
   FLAGS flags;
   uint32_t pc = 0;
@@ -45,6 +45,7 @@ class VM {
   uint8_t next_8_bit();
   std::vector<uint8_t> next_16_bit();
   std::vector<uint8_t> next_32_bit();
+  std::vector<uint8_t> next_string();
 
  public:
   VM();
