@@ -1,11 +1,13 @@
-#include "scanner.hpp"
 #include <cctype>
 #include <charconv>
+#include <cmath>
 #include <cstdio>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <unordered_map>
+
+#include "scanner.hpp"
 
 static bool starts_with(std::string_view str, std::string_view prefix) {
   size_t pos = str.find_first_of(" \t\n\r");
@@ -63,10 +65,10 @@ std::unordered_map<std::string, Opcode> opcode_map = {
     {"IGL", Opcode::IGL},
     {"NOP", Opcode::NOP}};
 
-std::optional<Token> scan_opcode(std::string_view str,
-                                 uint32_t start_pos,
-                                 uint32_t absolute_pos,
-                                 uint32_t line) {
+static std::optional<Token> scan_opcode(std::string_view str,
+                                        uint32_t start_pos,
+                                        uint32_t absolute_pos,
+                                        uint32_t line) {
   if (!std::isupper(str[0])) {
     return std::nullopt;
   }
@@ -97,10 +99,10 @@ std::optional<Token> scan_opcode(std::string_view str,
                ErrType{error_msg}};
 }
 
-std::optional<Token> scan_register(std::string_view str,
-                                   uint32_t start_pos,
-                                   uint32_t absolute_pos,
-                                   uint32_t line) {
+static std::optional<Token> scan_register(std::string_view str,
+                                          uint32_t start_pos,
+                                          uint32_t absolute_pos,
+                                          uint32_t line) {
   if (str.size() >= 2 && str[0] == 'r' && std::isdigit(str[1])) {
     size_t pos = 1;
     while (pos < str.size() && std::isdigit(str[pos])) {
@@ -121,10 +123,10 @@ std::optional<Token> scan_register(std::string_view str,
   return std::nullopt;
 }
 
-std::optional<Token> scan_int(std::string_view str,
-                              uint32_t start_pos,
-                              uint32_t absolute_pos,
-                              uint32_t line) {
+static std::optional<Token> scan_int(std::string_view str,
+                                     uint32_t start_pos,
+                                     uint32_t absolute_pos,
+                                     uint32_t line) {
   size_t pos = 0;
   if (str[pos] == '-' || str[pos] == '+') {
     pos++;
@@ -148,10 +150,10 @@ std::optional<Token> scan_int(std::string_view str,
   return std::nullopt;
 }
 
-std::optional<Token> scan_float(std::string_view str,
-                                uint32_t start_pos,
-                                uint32_t absolute_pos,
-                                uint32_t line) {
+static std::optional<Token> scan_float(std::string_view str,
+                                       uint32_t start_pos,
+                                       uint32_t absolute_pos,
+                                       uint32_t line) {
   size_t pos = 0;
   bool has_dot = false;
   if (str[pos] == '-' || str[pos] == '+') {
@@ -165,7 +167,7 @@ std::optional<Token> scan_float(std::string_view str,
     pos++;
   }
   if (has_dot && pos > 1) {
-    float float_value = 0.0f;
+    float_t float_value = 0.0f;
     auto result = std::from_chars(str.data(), str.data() + pos, float_value);
     if (result.ec == std::errc{}) {
       return Token{absolute_pos,
@@ -180,10 +182,10 @@ std::optional<Token> scan_float(std::string_view str,
   return std::nullopt;
 }
 
-std::optional<Token> scan_string(std::string_view str,
-                                 uint32_t start_pos,
-                                 uint32_t absolute_pos,
-                                 uint32_t line) {
+static std::optional<Token> scan_string(std::string_view str,
+                                        uint32_t start_pos,
+                                        uint32_t absolute_pos,
+                                        uint32_t line) {
   if (str.size() < 2 || str[0] != '"') {
     return std::nullopt;
   }
@@ -214,7 +216,7 @@ std::optional<Tokens> scan_all(std::string_view str) {
   std::vector<Token> token_list;
   std::string_view remaining = str;
   uint32_t current_pos = 0;
-  uint32_t absolute_pos = 0;  // 绝对位置
+  uint32_t absolute_pos = 0;
   uint32_t line = 1;
 
   while (!remaining.empty()) {
@@ -314,6 +316,35 @@ std::optional<Tokens> scan_file(const std::string& filename) {
 }
 
 namespace Test_Fn {
+void print_tokens(const Tokens& tokens) {
+  for (const auto& token : tokens.tokens) {
+    printf("line: %u | %u - %u | ", token.line, token.begin + 1, token.end);
+
+    switch (token.type) {
+      case TokenType::OP:
+        printf("OP | %u\n",
+               static_cast<uint8_t>(std::get<OpType>(token.value).value));
+        break;
+      case TokenType::REGISTER:
+        printf("REGISTER | %u\n", std::get<RegisterType>(token.value).value);
+        break;
+      case TokenType::INT32:
+        printf("INT32 | %d\n", std::get<Int32Type>(token.value).value);
+        break;
+      case TokenType::FLOAT32:
+        printf("FLOAT32 | %f\n", std::get<Float32Type>(token.value).value);
+        break;
+      case TokenType::STRING:
+        printf("STRING | %s\n",
+               std::get<StringType>(token.value).value.c_str());
+        break;
+      case TokenType::ERR:
+        printf("ERR | %s\n", std::get<ErrType>(token.value).msg.c_str());
+        break;
+    }
+  }
+}
+
 void print_tokens(const Tokens& tokens, const std::string& source) {
   for (const auto& token : tokens.tokens) {
     printf("line: %u | %u - %u | ", token.line, token.begin + 1, token.end);
