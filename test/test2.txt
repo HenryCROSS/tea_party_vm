@@ -1,0 +1,7 @@
+LOADI r0, 42
+LOADI r1, 10
+ADD r2, r0, r1
+SUB r3, r0, r1
+MUL r4, r0, r1
+DIV r5, r0, r1
+HLT
