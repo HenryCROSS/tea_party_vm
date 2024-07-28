@@ -8,7 +8,7 @@ namespace TPV {
 enum class Opcode : uint8_t {
   LOADI, // rd, 32bit imm
   LOADF, // rd, 32bit imm
-  LOADS, // rd, string / rd, str_table[idx]
+  LOADS, // rd, 32bit imm
   STORES, // imm, string
   ADD,  // rd, r1, r2
   SUB,  // rd, r1, r2
