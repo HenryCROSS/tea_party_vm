@@ -73,30 +73,24 @@ static std::optional<Token> scan_opcode(std::string_view str,
     return std::nullopt;
   }
 
-  for (const auto& [key, value] : opcode_map) {
-    if (starts_with(str, key)) {
-      return Token{
-          absolute_pos, absolute_pos + static_cast<uint32_t>(key.length()),
-          start_pos,    start_pos + static_cast<uint32_t>(key.length()),
-          line,         TokenType::OP,
-          OpType{value}};
-    }
-  }
-
   size_t pos = str.find_first_of(" \t\n\r");
   if (pos == std::string_view::npos) {
     pos = str.size();
   }
+  std::string key = std::string(str.substr(0, pos));
 
-  std::string unknown_op(str.substr(0, pos));
-  std::string error_msg = "Unknown opcode: " + unknown_op;
-  return Token{absolute_pos,
-               absolute_pos + static_cast<uint32_t>(pos),
-               start_pos,
-               start_pos + static_cast<uint32_t>(pos),
-               line,
-               TokenType::ERR,
-               ErrType{error_msg}};
+  auto it = opcode_map.find(key);
+  if (it != opcode_map.end()) {
+    return Token{absolute_pos,
+                 absolute_pos + static_cast<uint32_t>(key.length()),
+                 start_pos,
+                 start_pos + static_cast<uint32_t>(key.length()),
+                 line,
+                 TokenType::OP,
+                 OpType{it->second}};
+  }
+
+  return std::nullopt;
 }
 
 static std::optional<Token> scan_register(std::string_view str,
@@ -121,6 +115,54 @@ static std::optional<Token> scan_register(std::string_view str,
     }
   }
   return std::nullopt;
+}
+
+static std::optional<Token> scan_label(std::string_view str,
+                                       uint32_t start_pos,
+                                       uint32_t absolute_pos,
+                                       uint32_t line) {
+  if (str.size() < 2 || !std::isalpha(str[0])) {
+    return std::nullopt;
+  }
+
+  size_t pos = 1;
+  while (pos < str.size() && (std::isalnum(str[pos]) || str[pos] == '_')) {
+    pos++;
+  }
+
+  if (pos < str.size() && str[pos] == ':') {
+    return Token{absolute_pos,
+                 absolute_pos + static_cast<uint32_t>(pos + 1),
+                 start_pos,
+                 start_pos + static_cast<uint32_t>(pos + 1),
+                 line,
+                 TokenType::LABEL,
+                 LabelType{std::string(str.substr(0, pos))}};
+  }
+
+  return std::nullopt;
+}
+
+static std::optional<Token> scan_label_ref(std::string_view str,
+                                           uint32_t start_pos,
+                                           uint32_t absolute_pos,
+                                           uint32_t line) {
+  if (str.size() < 2 || str[0] != '@' || !std::isalpha(str[1])) {
+    return std::nullopt;
+  }
+
+  size_t pos = 1;
+  while (pos < str.size() && (std::isalnum(str[pos]) || str[pos] == '_')) {
+    pos++;
+  }
+
+  return Token{absolute_pos,
+               absolute_pos + static_cast<uint32_t>(pos),
+               start_pos,
+               start_pos + static_cast<uint32_t>(pos),
+               line,
+               TokenType::LABEL_REF,
+               LabelRefType{std::string(str.substr(1, pos - 1))}};
 }
 
 static std::optional<Token> scan_int(std::string_view str,
@@ -262,14 +304,14 @@ std::optional<Tokens> scan_all(std::string_view str) {
       current_pos += token_length;
       absolute_pos += token_length;
     } else if (auto token =
-                   scan_int(remaining, current_pos, absolute_pos, line)) {
+                   scan_float(remaining, current_pos, absolute_pos, line)) {
       token_list.push_back(*token);
       auto token_length = token->end - token->begin;
       remaining.remove_prefix(token_length);
       current_pos += token_length;
       absolute_pos += token_length;
     } else if (auto token =
-                   scan_float(remaining, current_pos, absolute_pos, line)) {
+                   scan_int(remaining, current_pos, absolute_pos, line)) {
       token_list.push_back(*token);
       auto token_length = token->end - token->begin;
       remaining.remove_prefix(token_length);
@@ -284,14 +326,24 @@ std::optional<Tokens> scan_all(std::string_view str) {
       absolute_pos += token_length;
     } else {
       // Unknown token, skip one character and try again
-      std::string error_msg =
-          "Unknown token starting at position " + std::to_string(current_pos);
+      size_t pos = remaining.find_first_of(" \t\n\r");
+      if (pos == std::string_view::npos) {
+        pos = remaining.size();
+      }
+
+      const std::string token_str = std::string(remaining.substr(0, pos));
+      const std::string error_msg = "Unknown token [" + token_str +
+                                    "] starting at position " +
+                                    std::to_string(current_pos);
+
       token_list.push_back(Token{absolute_pos, absolute_pos + 1, current_pos,
                                  current_pos + 1, line, TokenType::ERR,
                                  ErrType{error_msg}});
-      remaining.remove_prefix(1);
-      current_pos += 1;
-      absolute_pos += 1;
+
+      auto token_length = pos - current_pos;
+      remaining.remove_prefix(token_length);
+      current_pos += token_length;
+      absolute_pos += token_length;
     }
   }
 

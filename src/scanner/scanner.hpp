@@ -13,7 +13,16 @@
 
 namespace TPV {
 
-enum class TokenType { OP, REGISTER, INT32, FLOAT32, STRING, ERR };
+enum class TokenType {
+  OP,
+  REGISTER,
+  INT32,
+  FLOAT32,
+  STRING,
+  LABEL,
+  LABEL_REF,
+  ERR
+};
 enum class StringFormat { ASCII, UTF8 };
 
 struct OpType {
@@ -37,6 +46,14 @@ struct StringType {
   std::string value;
 };
 
+struct LabelType {
+  std::string label;
+};
+
+struct LabelRefType {
+  std::string label;
+};
+
 struct ErrType {
   std::string msg;
 };
@@ -46,9 +63,15 @@ struct Token {
   uint32_t begin, end;
   uint32_t line;
   TokenType type;
-  std::
-      variant<OpType, RegisterType, Int32Type, Float32Type, StringType, ErrType>
-          value;
+  std::variant<OpType,
+               RegisterType,
+               Int32Type,
+               Float32Type,
+               StringType,
+               LabelType,
+               LabelRefType,
+               ErrType>
+      value;
 };
 
 struct Tokens {
