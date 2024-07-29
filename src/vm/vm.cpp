@@ -1,7 +1,6 @@
 #include "vm.hpp"
 #include <cstdint>
 #include <fstream>
-#include <iostream>
 #include <memory>
 #include <vector>
 #include "../error_code.hpp"
@@ -313,7 +312,6 @@ VM_Result VM::eval_all() {
         break;
       }
       case Opcode::JMP: {
-        auto rd = this->next_8_bit();
         const auto new_pc = bytes_to_int32(this->next_32_bit());
         this->pc = new_pc;
         break;

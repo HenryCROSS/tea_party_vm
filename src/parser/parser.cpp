@@ -66,8 +66,8 @@ void Parser::first_pass() {
         case Opcode::LOADI:
         case Opcode::LOADF:
         case Opcode::LOADS: {
-          bytes_offset += 1;
           instr.rd = std::get<RegisterType>(next_token().value);
+          bytes_offset += 2;
           auto value_token = next_token();
           if (std::holds_alternative<Int32Type>(value_token.value)) {
             instr.int_val = std::get<Int32Type>(value_token.value);
@@ -258,6 +258,13 @@ void Parser::second_pass() {
         break;
     }
   }
+}
+
+void Parser::print_bytecodes() const {
+  for (size_t i = 0; i < bytecodes.size(); ++i) {
+    printf("%08b ", bytecodes[i]);
+  }
+  printf("\n");
 }
 
 }  // namespace TPV

@@ -1,7 +1,6 @@
 #include <iostream>
 #include "repl/repl.hpp"
 #include "scanner/scanner.hpp"
-#include "utils.hpp"
 #include "vm/vm.hpp"
 #include "parser/parser.hpp"
 
@@ -16,6 +15,7 @@ void test2(const std::string& filename) {
     TPV::Test_Fn::print_tokens(*tokens_opt);
     parser.load_tokens(*tokens_opt);
     auto result = parser.parse();
+    parser.print_bytecodes();
     if(result.err_msg.empty()){
       vm.load_bytes(result.bytecodes);
       vm.eval_all();

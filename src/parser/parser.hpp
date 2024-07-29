@@ -29,6 +29,7 @@ class Parser {
   void load_tokens(const Tokens& src);
   Parser_Result parse();
   void parse_to_file();
+  void print_bytecodes() const;
   ~Parser();
 
  private:
