@@ -23,6 +23,7 @@ std::unordered_map<std::string, Opcode> opcode_map = {
     {"LOADI", Opcode::LOADI},
     {"LOADF", Opcode::LOADF},
     {"LOADS", Opcode::LOADS},
+    {"LOADNIL", Opcode::LOADNIL},
     {"STORES", Opcode::STORES},
     {"ADD", Opcode::ADD},
     {"SUB", Opcode::SUB},
@@ -46,20 +47,23 @@ std::unordered_map<std::string, Opcode> opcode_map = {
     {"BITSHL", Opcode::BITSHL},
     {"BITSHRL", Opcode::BITSHRL},
     {"BITSHRA", Opcode::BITSHRA},
-    {"SET_LOCAL", Opcode::SET_LOCAL},
-    {"GET_LOCAL", Opcode::GET_LOCAL},
+    {"PUSH", Opcode::PUSH},
+    {"POP", Opcode::POP},
     {"SET_GLOBAL", Opcode::SET_GLOBAL},
     {"GET_GLOBAL", Opcode::GET_GLOBAL},
     {"SET_CONSTANT", Opcode::SET_CONSTANT},
+    {"GET_CONSTANT", Opcode::GET_CONSTANT},
+    {"SET_ARG", Opcode::SET_ARG},
     {"CALL", Opcode::CALL},
     {"RETURN", Opcode::RETURN},
     {"CLOSURE", Opcode::CLOSURE},
-    {"SET_SUM", Opcode::SET_SUM},
-    {"GET_SUM", Opcode::GET_SUM},
+    {"NEW_LIST", Opcode::NEW_LIST},
     {"SET_LIST", Opcode::SET_LIST},
     {"GET_LIST", Opcode::GET_LIST},
+    {"NEW_TABEL", Opcode::NEW_TABEL},
     {"SET_TABLE", Opcode::SET_TABLE},
     {"GET_TABLE", Opcode::GET_TABLE},
+    {"NEW_ARRAY", Opcode::NEW_ARRAY},
     {"SET_ARRAY", Opcode::SET_ARRAY},
     {"GET_ARRAY", Opcode::GET_ARRAY},
     {"IGL", Opcode::IGL},
@@ -304,6 +308,20 @@ std::optional<Tokens> scan_all(std::string_view str) {
       current_pos += token_length;
       absolute_pos += token_length;
     } else if (auto token =
+                   scan_label(remaining, current_pos, absolute_pos, line)) {
+      token_list.push_back(*token);
+      auto token_length = token->end - token->begin;
+      remaining.remove_prefix(token_length);
+      current_pos += token_length;
+      absolute_pos += token_length;
+    } else if (auto token =
+                   scan_label_ref(remaining, current_pos, absolute_pos, line)) {
+      token_list.push_back(*token);
+      auto token_length = token->end - token->begin;
+      remaining.remove_prefix(token_length);
+      current_pos += token_length;
+      absolute_pos += token_length;
+    } else if (auto token =
                    scan_float(remaining, current_pos, absolute_pos, line)) {
       token_list.push_back(*token);
       auto token_length = token->end - token->begin;
@@ -390,6 +408,13 @@ void print_tokens(const Tokens& tokens) {
         printf("STRING | %s\n",
                std::get<StringType>(token.value).value.c_str());
         break;
+      case TokenType::LABEL:
+        printf("LABEL | %s\n", std::get<LabelType>(token.value).label.c_str());
+        break;
+      case TokenType::LABEL_REF:
+        printf("LABEL_REF | %s\n",
+               std::get<LabelRefType>(token.value).label.c_str());
+        break;
       case TokenType::ERR:
         printf("ERR | %s\n", std::get<ErrType>(token.value).msg.c_str());
         break;
@@ -424,6 +449,13 @@ void print_tokens(const Tokens& tokens, const std::string& source) {
       case TokenType::STRING:
         printf("STRING | %s | %s\n", token_text.c_str(),
                std::get<StringType>(token.value).value.c_str());
+        break;
+      case TokenType::LABEL:
+        printf("LABEL | %s\n", std::get<LabelType>(token.value).label.c_str());
+        break;
+      case TokenType::LABEL_REF:
+        printf("LABEL_REF | %s\n",
+               std::get<LabelRefType>(token.value).label.c_str());
         break;
       case TokenType::ERR:
         printf("ERR | %s | %s\n", token_text.c_str(),

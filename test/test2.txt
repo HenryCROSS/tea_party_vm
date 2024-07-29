@@ -1,7 +1,8 @@
 LOADF  r0, -4.1
 LOADF r1, 1.1
 ADD r2, r0, r1
+JMP @end
 SUB r3, r0, r1
 MUL r4, r0, r1
 DIV r5, r0, r1
-HLT
+end: HLT

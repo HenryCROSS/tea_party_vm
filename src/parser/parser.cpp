@@ -1,4 +1,5 @@
 #include "parser.hpp"
+#include <cstdint>
 #include <cstring>
 #include <stdexcept>
 #include <string>
@@ -6,7 +7,7 @@
 
 namespace TPV {
 
-Parser::Parser() : tokens(), offset(0), err_msg() {}
+Parser::Parser() : tokens(), labels(), instructions(), offset(0), err_msg() {}
 
 Parser::~Parser() {}
 
@@ -27,12 +28,11 @@ Token Parser::next_token() {
 }
 
 Parser_Result Parser::parse() {
-  while (offset < tokens.tokens.size()) {
-    try {
-      parse_instruction();
-    } catch (const std::exception& e) {
-      err_msg.push_back(e.what());
-    }
+  try {
+    first_pass();
+    second_pass();
+  } catch (const std::exception& e) {
+    err_msg.push_back(e.what());
   }
 
   if (this->err_msg.size()) {
@@ -53,73 +53,152 @@ void Parser::emit_word(uint32_t word) {
   bytecodes.push_back(word & 0xFF);
 }
 
-void Parser::parse_instruction() {
-  auto token = next_token();
+void Parser::first_pass() {
+  uint32_t bytes_offset = 0;
+  while (offset < tokens.tokens.size()) {
+    auto token = next_token();
 
-  if (token.type != TokenType::OP) {
-    err_msg.push_back("Expected opcode at position " +
-                      std::to_string(token.begin));
-    return;
-  }
+    if (token.type == TokenType::OP) {
+      Instruction instr;
+      instr.op_val = std::get<OpType>(token.value);
 
-  auto opcode = std::get<OpType>(token.value).value;
-  emit_byte(static_cast<uint8_t>(opcode));
-
-  try {
-    switch (opcode) {
-      case Opcode::LOADI: {
-        auto rd = std::get<RegisterType>(next_token().value).value;
-        emit_byte(rd);
-        auto token = next_token();
-        if (std::holds_alternative<Int32Type>(token.value)) {
-          auto imm = std::get<Int32Type>(token.value).value;
-          emit_word(imm);
-        } else {
-          const std::string msg = "Type Err: Expected type int in line " +
-                                  std::to_string(token.line);
-          this->err_msg.push_back(msg);
+      switch (instr.op_val.value) {
+        case Opcode::LOADI:
+        case Opcode::LOADF:
+        case Opcode::LOADS: {
+          bytes_offset += 1;
+          instr.rd = std::get<RegisterType>(next_token().value);
+          auto value_token = next_token();
+          if (std::holds_alternative<Int32Type>(value_token.value)) {
+            instr.int_val = std::get<Int32Type>(value_token.value);
+            bytes_offset += 4;
+          } else if (std::holds_alternative<Float32Type>(value_token.value)) {
+            instr.float_val = std::get<Float32Type>(value_token.value);
+            bytes_offset += 4;
+          } else if (std::holds_alternative<StringType>(value_token.value)) {
+            instr.str_val = std::get<StringType>(value_token.value);
+            bytes_offset += instr.str_val->value.size();
+          } else {
+            err_msg.push_back("Type Error at position " +
+                              std::to_string(token.begin));
+          }
+          break;
         }
+        case Opcode::STORES: {
+          bytes_offset += 1;
+          instr.int_val = std::get<Int32Type>(next_token().value);
+          bytes_offset += 4;
+          auto str_token = next_token();
+          if (str_token.type != TokenType::STRING) {
+            throw std::runtime_error("Expected string for STORES");
+          }
+          instr.str_val = std::get<StringType>(str_token.value);
+          bytes_offset += instr.str_val->value.size();
+          break;
+        }
+        case Opcode::ADD:
+        case Opcode::SUB:
+        case Opcode::MUL:
+        case Opcode::DIV:
+        case Opcode::EQ:
+        case Opcode::NEQ:
+        case Opcode::GT:
+        case Opcode::GTE:
+        case Opcode::LT:
+        case Opcode::LTE:
+        case Opcode::BITAND:
+        case Opcode::BITOR:
+        case Opcode::BITXOR: {
+          instr.rd = std::get<RegisterType>(next_token().value);
+          instr.r1 = std::get<RegisterType>(next_token().value);
+          instr.r2 = std::get<RegisterType>(next_token().value);
+          bytes_offset += 4;
+          break;
+        }
+        case Opcode::BITNOT:
+        case Opcode::NEGATE: {
+          instr.rd = std::get<RegisterType>(next_token().value);
+          instr.r1 = std::get<RegisterType>(next_token().value);
+          bytes_offset += 3;
+          break;
+        }
+        case Opcode::BITSHL:
+        case Opcode::BITSHRL:
+        case Opcode::BITSHRA: {
+          instr.rd = std::get<RegisterType>(next_token().value);
+          instr.r1 = std::get<RegisterType>(next_token().value);
+          instr.int_val = std::get<Int32Type>(next_token().value);
+          bytes_offset += 7;
+          break;
+        }
+        case Opcode::CVT_I_D:
+        case Opcode::CVT_D_I: {
+          instr.rd = std::get<RegisterType>(next_token().value);
+          instr.r1 = std::get<RegisterType>(next_token().value);
+          bytes_offset += 3;
+          break;
+        }
+        case Opcode::HLT:
+          break;
+        case Opcode::JMP: {
+          bytes_offset += 1;
+          auto value_token = next_token();
+          if (std::holds_alternative<Int32Type>(value_token.value)) {
+            instr.int_val = std::get<Int32Type>(value_token.value);
+            bytes_offset += 4;
+          } else if (std::holds_alternative<LabelRefType>(value_token.value)) {
+            instr.label_ref = std::get<LabelRefType>(value_token.value);
+            bytes_offset += 4;
+          } else {
+            err_msg.push_back("Type Error at position " +
+                              std::to_string(token.begin));
+          }
+          break;
+        }
+        default:
+          err_msg.push_back("Unknown opcode at position " +
+                            std::to_string(token.begin));
+          break;
+      }
+
+      instructions.push_back(instr);
+    } else if (token.type == TokenType::LABEL) {
+      auto label = std::get<LabelType>(token.value).label;
+      labels[label] = bytes_offset;
+    } else {
+      err_msg.push_back("Unexpected token at position " +
+                        std::to_string(token.begin));
+    }
+  }
+}
+
+void Parser::second_pass() {
+  for (const auto& instr : instructions) {
+    emit_byte(static_cast<uint8_t>(instr.op_val.value));
+
+    switch (instr.op_val.value) {
+      case Opcode::LOADI: {
+        emit_byte(instr.rd->value);
+        emit_word(instr.int_val->value);
         break;
       }
       case Opcode::LOADF: {
-        auto rd = std::get<RegisterType>(next_token().value).value;
-        emit_byte(rd);
-        auto token = next_token();
-        if (std::holds_alternative<Float32Type>(token.value)) {
-          auto imm = std::get<Float32Type>(token.value).value;
-          uint32_t value = 0;
-          memcpy(&value, &imm, 4);
-          emit_word(value);
-        } else {
-          const std::string msg = "Type Err: Expected type float in line " +
-                                  std::to_string(token.line);
-          this->err_msg.push_back(msg);
-        }
+        emit_byte(instr.rd->value);
+        uint32_t value = 0;
+        std::memcpy(&value, &instr.float_val->value, sizeof(uint32_t));
+        emit_word(value);
         break;
       }
       case Opcode::LOADS: {
-        // auto rd = std::get<RegisterType>(next_token().value).value;
-        // emit_byte(rd);
-        // auto token = next_token();
-        // if (std::holds_alternative<Int32Type>(token.value)) {
-        //   auto imm = std::get<Int32Type>(token.value).value;
-        //   emit_word(imm);
-        // } else {
-        //   const std::string msg = "Type Err: Expected type int in line " +
-        //                           std::to_string(token.line);
-        //   this->err_msg.push_back(msg);
-        // }
+        emit_byte(instr.rd->value);
+        // Handle LOADS operand
         break;
       }
       case Opcode::STORES: {
-        auto imm = std::get<Int32Type>(next_token().value).value;
-        emit_word(imm);
-        auto str_token = next_token();
-        if (str_token.type != TokenType::STRING) {
-          throw std::runtime_error("Expected string for STORES");
+        emit_word(instr.int_val->value);
+        for (const auto& ch : instr.str_val->value) {
+          emit_byte(static_cast<uint8_t>(ch));
         }
-        auto str = std::get<StringType>(str_token.value).value;
-        bytecodes.insert(bytecodes.end(), str.begin(), str.end());
         emit_byte(0);  // Null-terminator
         break;
       }
@@ -135,58 +214,49 @@ void Parser::parse_instruction() {
       case Opcode::LTE:
       case Opcode::BITAND:
       case Opcode::BITOR:
-      case Opcode::BITXOR: {
-        auto rd = std::get<RegisterType>(next_token().value).value;
-        auto r1 = std::get<RegisterType>(next_token().value).value;
-        auto r2 = std::get<RegisterType>(next_token().value).value;
-        emit_byte(rd);
-        emit_byte(r1);
-        emit_byte(r2);
+      case Opcode::BITXOR:
+        emit_byte(instr.rd->value);
+        emit_byte(instr.r1->value);
+        emit_byte(instr.r2->value);
         break;
-      }
       case Opcode::BITNOT:
-      case Opcode::NEGATE: {
-        auto rd = std::get<RegisterType>(next_token().value).value;
-        auto r1 = std::get<RegisterType>(next_token().value).value;
-        emit_byte(rd);
-        emit_byte(r1);
+      case Opcode::NEGATE:
+        emit_byte(instr.rd->value);
+        emit_byte(instr.r1->value);
         break;
-      }
       case Opcode::BITSHL:
       case Opcode::BITSHRL:
-      case Opcode::BITSHRA: {
-        auto rd = std::get<RegisterType>(next_token().value).value;
-        auto r1 = std::get<RegisterType>(next_token().value).value;
-        auto imm = std::get<Int32Type>(next_token().value).value;
-        emit_byte(rd);
-        emit_byte(r1);
-        emit_word(imm);
+      case Opcode::BITSHRA:
+        emit_byte(instr.rd->value);
+        emit_byte(instr.r1->value);
+        emit_word(instr.int_val->value);
         break;
-      }
       case Opcode::CVT_I_D:
-      case Opcode::CVT_D_I: {
-        auto rd = std::get<RegisterType>(next_token().value).value;
-        auto r1 = std::get<RegisterType>(next_token().value).value;
-        emit_byte(rd);
-        emit_byte(r1);
+      case Opcode::CVT_D_I:
+        emit_byte(instr.rd->value);
+        emit_byte(instr.r1->value);
         break;
-      }
-      case Opcode::HLT: {
+      case Opcode::HLT:
         // No additional operands
         break;
-      }
       case Opcode::JMP: {
-        auto addr = std::get<Int32Type>(next_token().value).value;
-        emit_word(addr);
+        if (instr.label_ref.has_value()) {
+          auto label_ref = instr.label_ref->label;
+          auto label_pos = labels.find(label_ref);
+          if (label_pos != labels.end()) {
+            emit_word(label_pos->second);
+          } else {
+            err_msg.push_back("Undefined label: " + label_ref);
+          }
+        } else {
+          emit_word(instr.int_val->value);
+        }
         break;
       }
       default:
-        err_msg.push_back("Unknown opcode at position " +
-                          std::to_string(token.begin));
+        err_msg.push_back("Unknown opcode");
         break;
     }
-  } catch (const std::exception& e) {
-    err_msg.push_back(e.what());
   }
 }
 
