@@ -9,14 +9,11 @@
 namespace TPV {
 
 enum class ObjType {
-  FUNCTION,
   CLOSURE,
   MODULE,
   STRING,
   UPVALUE,
   FOREIGN,
-  SUM,
-  PRODUCT,
   LIST,
   MAP,
   ARRAY,
@@ -30,17 +27,12 @@ struct TPV_ObjString {
   std::string value;
 };
 
-struct TPV_ObjFunc {};
-
 struct TPV_ObjClosure {};
 
 struct TPV_ObjModule {};
 
 struct TPV_ObjUpvalue {};
 
-struct TPV_ObjSum {};
-
-struct TPV_ObjProduct {};
 struct TPV_ObjList {};
 struct TPV_ObjMap {};
 struct TPV_ObjArray {};
@@ -50,10 +42,7 @@ struct TPV_Obj {
   std::variant<std::shared_ptr<TPV_ObjString>,
                std::shared_ptr<TPV_ObjClosure>,
                std::shared_ptr<TPV_ObjModule>,
-               std::shared_ptr<TPV_ObjFunc>,
-               std::shared_ptr<TPV_ObjUpvalue>,
-               std::shared_ptr<TPV_ObjSum>,
-               std::shared_ptr<TPV_ObjProduct>>
+               std::shared_ptr<TPV_ObjUpvalue>>
       obj;
 };
 
@@ -71,19 +60,19 @@ struct Value {
   std::variant<TPV_INT, TPV_FLOAT, bool, TPV_Obj, TPV_Unit> value;
 };
 
-inline Value from_raw_value(TPV_INT val){
+inline Value from_raw_value(TPV_INT val) {
   return {
-    .type = ValueType::TPV_INT,
-    .is_const = false,
-    .value = val,
+      .type = ValueType::TPV_INT,
+      .is_const = false,
+      .value = val,
   };
 }
 
-inline Value from_raw_value(TPV_FLOAT val){
+inline Value from_raw_value(TPV_FLOAT val) {
   return {
-    .type = ValueType::TPV_FLOAT,
-    .is_const = false,
-    .value = val,
+      .type = ValueType::TPV_FLOAT,
+      .is_const = false,
+      .value = val,
   };
 }
 

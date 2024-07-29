@@ -163,7 +163,6 @@ VM_Result VM::eval_all() {
         const auto r2 = this->frames.back().stack.at(this->next_8_bit());
 
         auto& ref = this->frames.back().stack.at(rd);
-
         if (r1.type == r2.type) {
           if (r1.type == ValueType::TPV_INT) {
             ref = from_raw_value(std::get<TPV_INT>(r1.value) +
@@ -584,16 +583,14 @@ VM_Result VM::eval_all() {
 
         break;
       }
-      case Opcode::SET_LOCAL:
-      case Opcode::GET_LOCAL:
+      case Opcode::PUSH:
+      case Opcode::POP:
       case Opcode::SET_GLOBAL:
       case Opcode::GET_GLOBAL:
       case Opcode::SET_CONSTANT:
       case Opcode::CALL:
       case Opcode::RETURN:
       case Opcode::CLOSURE:
-      case Opcode::SET_SUM:
-      case Opcode::GET_SUM:
       case Opcode::SET_LIST:
       case Opcode::GET_LIST:
       case Opcode::SET_TABLE:

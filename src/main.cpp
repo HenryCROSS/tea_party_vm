@@ -24,7 +24,7 @@ void test2(const std::string& filename) {
       for (auto&& i : result.err_msg) {
         std::cout << i << "\n";
       }
-      vm.print_regs();
+      // vm.print_regs();
     }
   } else {
     std::cerr << "Failed to scan file" << std::endl;

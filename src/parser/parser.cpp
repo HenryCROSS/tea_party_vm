@@ -1,6 +1,8 @@
 #include "parser.hpp"
+#include <cstring>
 #include <stdexcept>
 #include <string>
+#include <variant>
 
 namespace TPV {
 
@@ -65,13 +67,48 @@ void Parser::parse_instruction() {
 
   try {
     switch (opcode) {
-      case Opcode::LOADI:
-      case Opcode::LOADF:
-      case Opcode::LOADS: {
+      case Opcode::LOADI: {
         auto rd = std::get<RegisterType>(next_token().value).value;
         emit_byte(rd);
-        auto imm = std::get<Int32Type>(next_token().value).value;
-        emit_word(imm);
+        auto token = next_token();
+        if (std::holds_alternative<Int32Type>(token.value)) {
+          auto imm = std::get<Int32Type>(token.value).value;
+          emit_word(imm);
+        } else {
+          const std::string msg = "Type Err: Expected type int in line " +
+                                  std::to_string(token.line);
+          this->err_msg.push_back(msg);
+        }
+        break;
+      }
+      case Opcode::LOADF: {
+        auto rd = std::get<RegisterType>(next_token().value).value;
+        emit_byte(rd);
+        auto token = next_token();
+        if (std::holds_alternative<Float32Type>(token.value)) {
+          auto imm = std::get<Float32Type>(token.value).value;
+          uint32_t value = 0;
+          memcpy(&value, &imm, 4);
+          emit_word(value);
+        } else {
+          const std::string msg = "Type Err: Expected type float in line " +
+                                  std::to_string(token.line);
+          this->err_msg.push_back(msg);
+        }
+        break;
+      }
+      case Opcode::LOADS: {
+        // auto rd = std::get<RegisterType>(next_token().value).value;
+        // emit_byte(rd);
+        // auto token = next_token();
+        // if (std::holds_alternative<Int32Type>(token.value)) {
+        //   auto imm = std::get<Int32Type>(token.value).value;
+        //   emit_word(imm);
+        // } else {
+        //   const std::string msg = "Type Err: Expected type int in line " +
+        //                           std::to_string(token.line);
+        //   this->err_msg.push_back(msg);
+        // }
         break;
       }
       case Opcode::STORES: {

@@ -1,5 +1,5 @@
-LOADI r0, 42
-LOADI r1, 10
+LOADF  r0, -4.1
+LOADF r1, 1.1
 ADD r2, r0, r1
 SUB r3, r0, r1
 MUL r4, r0, r1

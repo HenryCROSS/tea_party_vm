@@ -25,7 +25,7 @@ inline std::vector<uint8_t> int32_to_bytes(int32_t value) {
 }
 
 inline std::vector<uint8_t> float32_to_bytes(float_t val) {
-  int32_t value = 0;
+  uint32_t value = 0;
   memcpy(&value, &val, 4);
 
   std::vector<uint8_t> bytes(sizeof(int32_t));
