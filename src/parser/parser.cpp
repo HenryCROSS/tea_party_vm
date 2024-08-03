@@ -84,6 +84,11 @@ void Parser::first_pass() {
           }
           break;
         }
+        case Opcode::LOADNIL: {
+          instr.rd = std::get<RegisterType>(next_token().value);
+          bytes_offset += 2;
+          break;
+        }
         case Opcode::STORES: {
           bytes_offset += 1;
           instr.int_val = std::get<Int32Type>(next_token().value);
@@ -211,6 +216,10 @@ void Parser::second_pass() {
         // Handle LOADS operand
         break;
       }
+      case Opcode::LOADNIL: {
+        emit_byte(instr.rd->value);
+        break;
+      }
       case Opcode::STORES: {
         emit_word(instr.int_val->value);
         for (const auto& ch : instr.str_val->value) {
@@ -272,7 +281,7 @@ void Parser::second_pass() {
       }
       case Opcode::JMP_IF: {
         emit_byte(instr.r1->value);
-        
+
         if (instr.label_ref.has_value()) {
           auto label_ref = instr.label_ref->label;
           auto label_pos = labels.find(label_ref);

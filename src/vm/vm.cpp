@@ -148,6 +148,17 @@ VM_Result VM::eval_all() {
 
         break;
       }
+      case Opcode::LOADNIL: {
+        auto rd = this->next_8_bit();
+        const auto idx = bytes_to_int32(this->next_32_bit());
+
+        auto& ref = this->frames.back().stack.at(rd);
+        this->frames.back().stack.at(rd) = {.type = ValueType::TPV_UNIT,
+                                            .is_const = false,
+                                            .value = (TPV_Unit){}};
+
+        break;
+      }
       case Opcode::STORES: {
         const auto idx = bytes_to_int32(this->next_32_bit());
         const auto str = bytes_to_string(this->next_string());
@@ -635,6 +646,8 @@ void VM::print_regs() {
     } else if (ref.type == ValueType::TPV_FLOAT) {
       std::cout << "reg " << i << " : " << std::get<TPV_FLOAT>(ref.value)
                 << "\n";
+    } else if (ref.type == ValueType::TPV_UNIT) {
+      std::cout << "reg " << i << " : NIL\n";
     }
   }
 }
