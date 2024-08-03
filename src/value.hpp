@@ -52,12 +52,12 @@ TPV_FLOAT :: float_t
 BOOL :: bool
 UNIT :: ()
 */
-enum class ValueType { TPV_INT, TPV_FLOAT, BOOL, TPV_OBJ, TPV_UNIT };
+enum class ValueType { TPV_INT, TPV_FLOAT, TPV_OBJ, TPV_UNIT };
 
 struct Value {
   ValueType type;
   bool is_const;
-  std::variant<TPV_INT, TPV_FLOAT, bool, TPV_Obj, TPV_Unit> value;
+  std::variant<TPV_INT, TPV_FLOAT, TPV_Obj, TPV_Unit> value;
 };
 
 inline Value from_raw_value(TPV_INT val) {

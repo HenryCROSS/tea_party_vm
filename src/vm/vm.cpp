@@ -316,6 +316,23 @@ VM_Result VM::eval_all() {
         this->pc = new_pc;
         break;
       }
+      case Opcode::JMP_IF: {
+        const auto r1 = this->frames.back().stack.at(this->next_8_bit());
+        const auto new_pc = bytes_to_int32(this->next_32_bit());
+
+        if (r1.type == ValueType::TPV_INT) {
+          auto val = std::get<TPV_INT>(r1.value);
+          if (val)
+            this->pc = new_pc;
+        } else if (r1.type == ValueType::TPV_FLOAT) {
+          auto val = std::get<TPV_FLOAT>(r1.value);
+          if (val)
+            this->pc = new_pc;
+        } else {
+          this->errors.push_back({});
+        }
+        break;
+      }
       case Opcode::EQ: {
         auto rd = this->next_8_bit();
         const auto r1 = this->frames.back().stack.at(this->next_8_bit());

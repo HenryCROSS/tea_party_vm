@@ -34,6 +34,7 @@ std::unordered_map<std::string, Opcode> opcode_map = {
     {"NEGATE", Opcode::NEGATE},
     {"HLT", Opcode::HLT},
     {"JMP", Opcode::JMP},
+    {"JMP_IF", Opcode::JMP_IF},
     {"EQ", Opcode::EQ},
     {"NEQ", Opcode::NEQ},
     {"GT", Opcode::GT},

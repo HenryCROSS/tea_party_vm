@@ -155,6 +155,23 @@ void Parser::first_pass() {
           }
           break;
         }
+        case Opcode::JMP_IF: {
+          bytes_offset += 1;
+          instr.r1 = std::get<RegisterType>(next_token().value);
+          bytes_offset += 1;
+          auto value_token = next_token();
+          if (std::holds_alternative<Int32Type>(value_token.value)) {
+            instr.int_val = std::get<Int32Type>(value_token.value);
+            bytes_offset += 4;
+          } else if (std::holds_alternative<LabelRefType>(value_token.value)) {
+            instr.label_ref = std::get<LabelRefType>(value_token.value);
+            bytes_offset += 4;
+          } else {
+            err_msg.push_back("Type Error at position " +
+                              std::to_string(token.begin));
+          }
+          break;
+        }
         default:
           err_msg.push_back("Unknown opcode at position " +
                             std::to_string(token.begin));
@@ -240,6 +257,22 @@ void Parser::second_pass() {
         // No additional operands
         break;
       case Opcode::JMP: {
+        if (instr.label_ref.has_value()) {
+          auto label_ref = instr.label_ref->label;
+          auto label_pos = labels.find(label_ref);
+          if (label_pos != labels.end()) {
+            emit_word(label_pos->second);
+          } else {
+            err_msg.push_back("Undefined label: " + label_ref);
+          }
+        } else {
+          emit_word(instr.int_val->value);
+        }
+        break;
+      }
+      case Opcode::JMP_IF: {
+        emit_byte(instr.r1->value);
+        
         if (instr.label_ref.has_value()) {
           auto label_ref = instr.label_ref->label;
           auto label_pos = labels.find(label_ref);

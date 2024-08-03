@@ -20,6 +20,7 @@ enum class Opcode : uint8_t {
   NEGATE,   //rd, r1
   HLT,
   JMP,   // 32bit imm | @label
+  JMP_IF, // r1, 32bit imm | @label
   EQ,    // rd, r1, r2
   NEQ,   // rd, r1, r2
   GT,    // rd, r1, r2
