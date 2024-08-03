@@ -36,6 +36,9 @@ enum class Opcode : uint8_t {
   BITSHRL, // rd, r1, imm
   BITSHRA, // rd, r1, imm
 
+  // for IO
+  VMCALL, // r1, r2, imm
+
   // set register to variable
   PUSH, // r1
   POP, // rd
