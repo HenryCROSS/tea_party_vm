@@ -141,7 +141,6 @@ VM_Result VM::eval_all() {
         auto rd = this->next_8_bit();
         const auto idx = bytes_to_int32(this->next_32_bit());
 
-        auto& ref = this->frames.back().registers.at(rd);
         this->frames.back().registers.at(rd) = {
             .type = ValueType::TPV_OBJ,
             .is_const = false,
@@ -154,7 +153,6 @@ VM_Result VM::eval_all() {
         auto rd = this->next_8_bit();
         const auto idx = bytes_to_int32(this->next_32_bit());
 
-        auto& ref = this->frames.back().registers.at(rd);
         this->frames.back().registers.at(rd) = {.type = ValueType::TPV_UNIT,
                                                 .is_const = false,
                                                 .value = (TPV_Unit){}};
