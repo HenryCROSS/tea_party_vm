@@ -6,11 +6,11 @@
 namespace TPV {
 
 enum class Opcode : uint8_t {
-  LOADI, // rd, 32bit imm
-  LOADF, // rd, 32bit imm
-  LOADS, // rd, 32bit imm
-  LOADNIL, // rd
-  STORES, // imm, string
+  LOADI, // rd, 32bit imm ;set reg Value as 32bit imm
+  LOADF, // rd, 32bit imm ;set reg Value as 32bit imm
+  LOADS, // rd, 32bit imm ;set reg Value as str ref from str_table
+  LOADNIL, // rd          ;set reg Value as NIL
+  STORES, // imm, string ;set String to str_table
   ADD,  // rd, r1, r2
   SUB,  // rd, r1, r2
   MUL,  // rd, r1, r2
@@ -37,7 +37,15 @@ enum class Opcode : uint8_t {
   BITSHRA, // rd, r1, imm
 
   // for IO
-  VMCALL, // r1, r2, imm
+  VMCALL, // r1, (int)r2, imm
+          // imm = 0
+          // print r1 value, if r2 == int && r2 == 1, print "\n"
+          // = 1
+          // get int32 to r1
+          // = 2
+          // get float to r1
+          // = 3
+          // get string to int addr from r2, save ptr to r1
 
   // set register to variable
   PUSH, // r1

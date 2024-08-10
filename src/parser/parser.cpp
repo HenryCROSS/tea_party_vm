@@ -177,6 +177,21 @@ void Parser::first_pass() {
           }
           break;
         }
+        case Opcode::VMCALL: {
+          bytes_offset += 1;
+          instr.r1 = std::get<RegisterType>(next_token().value);
+          instr.r2 = std::get<RegisterType>(next_token().value);
+          bytes_offset += 2;
+          auto value_token = next_token();
+          if (std::holds_alternative<Int32Type>(value_token.value)) {
+            instr.int_val = std::get<Int32Type>(value_token.value);
+            bytes_offset += 4;
+          } else {
+            err_msg.push_back("Type Error at position " +
+                              std::to_string(token.begin));
+          }
+          break;
+        }
         default:
           err_msg.push_back("Unknown opcode at position " +
                             std::to_string(token.begin));
@@ -294,6 +309,11 @@ void Parser::second_pass() {
           emit_word(instr.int_val->value);
         }
         break;
+      }
+      case Opcode::VMCALL: {
+          emit_word(instr.r1->value);
+          emit_word(instr.r2->value);
+          emit_word(instr.int_val->value);
       }
       default:
         err_msg.push_back("Unknown opcode");
