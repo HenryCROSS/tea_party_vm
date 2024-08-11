@@ -69,9 +69,9 @@ enum class Opcode : uint8_t {
   SET_LIST, // 
   GET_LIST, // rd, imm
 
-  NEW_TABEL,
-  SET_TABLE, // r1, imm
-  GET_TABLE, // rd
+  NEW_TABLE, // rd
+  SET_TABLE, // rd, r1, imm
+  GET_TABLE, // rd, imm
 
   NEW_ARRAY,
   SET_ARRAY,

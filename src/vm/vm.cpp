@@ -700,14 +700,13 @@ VM_Result VM::eval_all() {
               auto str = std::string(input);
               auto idx = hash_string(str);
               auto it = this->str_table.find(idx);
-              do
-              {
+              do {
                 idx += 1;
                 it = this->str_table.find(idx);
-              } while(it != this->str_table.cend());
+              } while (it != this->str_table.cend());
 
-              this->str_table[idx] = std::make_shared<TPV_ObjString>(
-                  TPV_ObjString{.value = str});
+              this->str_table[idx] =
+                  std::make_shared<TPV_ObjString>(TPV_ObjString{.value = str});
 
               this->frames.back().registers.at(r1_idx) = {
                   .type = ValueType::TPV_OBJ,
@@ -728,6 +727,49 @@ VM_Result VM::eval_all() {
 
         break;
       }
+      case Opcode::NEW_TABLE: {
+        auto rd = this->next_8_bit();
+        auto& ref = this->frames.back().registers.at(rd);
+
+        auto idx = this->table_table.size();
+        auto tbl = std::make_shared<TPV_ObjTable>(TPV_ObjTable{.hash = idx});
+        this->table_table.at(idx) = tbl;
+
+        auto obj = TPV_Obj{.type = ObjType::TABLE, .obj = tbl};
+        auto val =
+            Value{.type = ValueType::TPV_OBJ, .is_const = false, .value = obj};
+
+        ref = val;
+        break;
+      }
+      case Opcode::SET_TABLE: {
+        auto rd = this->next_8_bit();
+        auto r1 = this->next_8_bit();
+        const auto imm = bytes_to_int32(this->next_32_bit());
+
+        auto& ref_r1 = this->frames.back().registers.at(r1);
+        auto& ref_rd = this->frames.back().registers.at(rd);
+
+        auto obj = std::get<TPV_Obj>(ref_rd.value);
+        auto tbl = std::get<std::shared_ptr<TPV_ObjTable>>(obj.obj);
+
+        tbl->tbl[imm] = ref_rd;
+
+        break;
+      }
+      case Opcode::GET_TABLE: {
+        auto rd = this->next_8_bit();
+        const auto imm = bytes_to_int32(this->next_32_bit());
+        auto& ref_rd = this->frames.back().registers.at(rd);
+
+        auto tbl = this->table_table[imm];
+
+        ref_rd = Value{.type = ValueType::TPV_OBJ,
+                       .is_const = false,
+                       .value = TPV_Obj{.type = ObjType::TABLE, .obj = tbl}};
+
+        break;
+      }
       case Opcode::SET_GLOBAL:
       case Opcode::GET_GLOBAL:
       case Opcode::SET_CONSTANT:
@@ -736,8 +778,6 @@ VM_Result VM::eval_all() {
       case Opcode::CLOSURE:
       case Opcode::SET_LIST:
       case Opcode::GET_LIST:
-      case Opcode::SET_TABLE:
-      case Opcode::GET_TABLE:
       case Opcode::SET_ARRAY:
       case Opcode::GET_ARRAY:
       case Opcode::IGL:

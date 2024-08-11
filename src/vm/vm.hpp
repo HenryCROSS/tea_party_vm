@@ -31,7 +31,10 @@ class VM {
   std::vector<uint8_t> bytes;
   std::vector<Frame> frames;
   std::unordered_map<size_t, std::shared_ptr<TPV_ObjString>> str_table;
-  std::unordered_map<size_t, std::shared_ptr<TPV_Obj>> heap;
+  std::unordered_map<size_t, std::shared_ptr<TPV_ObjTable>> table_table;
+
+  // to store all values
+  std::vector<std::shared_ptr<TPV_Obj>> heap;
   std::vector<Error> errors;
   FLAGS flags;
   uint32_t pc = 0;

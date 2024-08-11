@@ -4,9 +4,13 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <variant>
+#include <vector>
 #include "common.hpp"
 namespace TPV {
+
+struct Value;
 
 enum class ObjType {
   CLOSURE,
@@ -37,7 +41,10 @@ struct TPV_ObjUpvalue {};
 struct TPV_ObjList {};
 struct TPV_ObjMap {};
 struct TPV_ObjArray {};
-struct TPV_ObjTable {};
+struct TPV_ObjTable {
+  size_t hash;
+  std::unordered_map<size_t, Value> tbl;
+};
 
 struct TPV_Obj {
   ObjType type;
