@@ -68,7 +68,7 @@ inline std::string bytes_to_string(const std::vector<uint8_t>& bytes) {
   return result;
 }
 
-inline std::size_t hash_string(const std::string& str) {
+inline std::int32_t hash_string(const std::string& str) {
   return std::hash<std::string>{}(str);
 }
 

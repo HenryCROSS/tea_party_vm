@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <variant>
@@ -162,8 +163,8 @@ VM_Result VM::eval_all() {
       case Opcode::STORES: {
         const auto idx = bytes_to_int32(this->next_32_bit());
         const auto str = bytes_to_string(this->next_string());
-        this->str_table[idx] =
-            std::make_shared<TPV_ObjString>((TPV_ObjString){.value = str});
+        this->str_table[idx] = std::make_shared<TPV_ObjString>(
+            (TPV_ObjString){.hash = static_cast<size_t>(idx), .value = str});
 
         break;
       }
@@ -696,9 +697,17 @@ VM_Result VM::eval_all() {
                 input[input_size - 1] = '\0';
               }
 
-              auto idx = this->str_table.size();
+              auto str = std::string(input);
+              auto idx = hash_string(str);
+              auto it = this->str_table.find(idx);
+              do
+              {
+                idx += 1;
+                it = this->str_table.find(idx);
+              } while(it != this->str_table.cend());
+
               this->str_table[idx] = std::make_shared<TPV_ObjString>(
-                  TPV_ObjString{.value = std::string(input)});
+                  TPV_ObjString{.value = str});
 
               this->frames.back().registers.at(r1_idx) = {
                   .type = ValueType::TPV_OBJ,

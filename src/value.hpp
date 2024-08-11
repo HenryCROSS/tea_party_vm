@@ -24,7 +24,7 @@ enum class ObjType {
 struct TPV_Unit {};
 
 struct TPV_ObjString {
-  // size_t hash;
+  size_t hash;
   std::string value;
 };
 
