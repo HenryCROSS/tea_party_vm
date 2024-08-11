@@ -20,6 +20,7 @@ void test2(const std::string& filename) {
       vm.load_bytes(result.bytecodes);
       vm.eval_all();
       vm.print_regs();
+      vm.print_str_table();
     }else {
       for (auto&& i : result.err_msg) {
         std::cout << i << "\n";

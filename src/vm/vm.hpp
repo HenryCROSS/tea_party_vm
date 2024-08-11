@@ -58,6 +58,7 @@ class VM {
 
   // For Debugging
   void print_regs();
+  void print_str_table();
 };
 
 }  // namespace TPV

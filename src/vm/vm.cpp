@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
+#include <iostream>
 #include <memory>
 #include <variant>
 #include <vector>
@@ -140,7 +141,6 @@ VM_Result VM::eval_all() {
       case Opcode::LOADS: {
         auto rd = this->next_8_bit();
         const auto idx = bytes_to_int32(this->next_32_bit());
-
         this->frames.back().registers.at(rd) = {
             .type = ValueType::TPV_OBJ,
             .is_const = false,
@@ -621,14 +621,13 @@ VM_Result VM::eval_all() {
         break;
       }
       case Opcode::VMCALL: {
-        const auto r1 = this->next_8_bit();
-        const auto r2 = this->next_8_bit();
+        const auto r1_idx = this->next_8_bit();
+        const auto r2_idx = this->next_8_bit();
         const auto imm = bytes_to_int32(this->next_32_bit());
 
         switch (imm) {
           case 0: {
-            const auto r1 =
-                this->frames.back().registers.at(this->next_8_bit());
+            const auto& r1 = this->frames.back().registers.at(r1_idx);
             if (r1.type == ValueType::TPV_INT) {
               const auto num = std::get<TPV_INT>(r1.value);
               std::printf("%d", num);
@@ -641,13 +640,12 @@ VM_Result VM::eval_all() {
                   std::get<std::shared_ptr<TPV_ObjString>>(str.obj);
               std::printf("%s", ptr->value.c_str());
             } else {
-              this->errors.push_back({});
+              this->errors.push_back({"Nothing in the register"});
             }
 
-            const auto r2 =
-                this->frames.back().registers.at(this->next_8_bit());
+            const auto& r2 = this->frames.back().registers.at(r2_idx);
             if (r2.type == ValueType::TPV_INT) {
-              const auto flag = std::get<TPV_INT>(r1.value);
+              const auto flag = std::get<TPV_INT>(r2.value);
               if (flag == 1) {
                 std::printf("\n");
               }
@@ -662,7 +660,7 @@ VM_Result VM::eval_all() {
               char* endptr;
               long int input = strtol(buffer, &endptr, 10);
               if (*endptr == '\n' || *endptr == '\0') {
-                this->frames.back().registers.at(r1) =
+                this->frames.back().registers.at(r1_idx) =
                     from_raw_value((TPV_INT)input);
               } else {
                 this->errors.push_back({"Invalid integer input"});
@@ -678,7 +676,7 @@ VM_Result VM::eval_all() {
               char* endptr;
               float input = strtof(buffer, &endptr);
               if (*endptr == '\n' || *endptr == '\0') {
-                this->frames.back().registers.at(r1) =
+                this->frames.back().registers.at(r1_idx) =
                     from_raw_value((TPV_FLOAT)input);
               } else {
                 this->errors.push_back({"Invalid integer input"});
@@ -689,39 +687,33 @@ VM_Result VM::eval_all() {
             break;
           }
           case 3: {
-            auto& r2_value = this->frames.back().registers.at(r2);
+            char* input = nullptr;
+            size_t bufsize = 0;
+            ssize_t input_size = getline(&input, &bufsize, stdin);
 
-            if (r2_value.type == ValueType::TPV_INT) {
-              int idx = std::get<TPV_INT>(r2_value.value);
-
-              char* input = nullptr;
-              size_t bufsize = 0;
-              ssize_t input_size = getline(&input, &bufsize, stdin);
-
-              if (input_size != -1) {
-                if (input[input_size - 1] == '\n') {
-                  input[input_size - 1] = '\0';
-                }
-
-                this->str_table[idx] = std::make_shared<TPV_ObjString>(
-                    TPV_ObjString{.value = std::string(input)});
-
-                this->frames.back().registers.at(r1) = {
-                    .type = ValueType::TPV_OBJ,
-                    .is_const = false,
-                    .value = (TPV_Obj){.type = ObjType::STRING,
-                                       .obj = this->str_table.at(idx)}};
-              } else {
-                this->errors.push_back({"Failed to read input"});
+            if (input_size != -1) {
+              if (input[input_size - 1] == '\n') {
+                input[input_size - 1] = '\0';
               }
 
-              free(input);
+              auto idx = this->str_table.size();
+              this->str_table[idx] = std::make_shared<TPV_ObjString>(
+                  TPV_ObjString{.value = std::string(input)});
+
+              this->frames.back().registers.at(r1_idx) = {
+                  .type = ValueType::TPV_OBJ,
+                  .is_const = false,
+                  .value = (TPV_Obj){.type = ObjType::STRING,
+                                     .obj = this->str_table.at(idx)}};
             } else {
-              this->errors.push_back({"Invalid index in r2"});
+              this->errors.push_back({"Failed to read input"});
             }
+
+            free(input);
             break;
           }
           default:
+            this->errors.push_back({"Invalid flag"});
             break;
         }
 
@@ -764,6 +756,31 @@ void VM::print_regs() {
                 << "\n";
     } else if (ref.type == ValueType::TPV_UNIT) {
       std::cout << "reg " << i << " : NIL\n";
+    } else if (ref.type == ValueType::TPV_OBJ) {
+      auto&& obj_ref = std::get<TPV_Obj>(ref.value);
+      if (obj_ref.type == ObjType::STRING) {
+        auto&& ref = std::get<std::shared_ptr<TPV_ObjString>>(obj_ref.obj);
+        std::cout << "reg " << i << " : <TPV_ObjString " << ref << "> "
+                  << ref->value << "\n";
+      } else if (obj_ref.type == ObjType::MAP) {
+        std::cout << "reg " << i << " : <TPV_ObjTable "
+                  << std::get<std::shared_ptr<TPV_ObjTable>>(obj_ref.obj)
+                  << ">\n";
+      }
+    }
+  }
+}
+void VM::print_str_table() {
+  std::cout << "String Table Contents:" << std::endl;
+
+  for (const auto& entry : str_table) {
+    int idx = entry.first;
+    const auto& str_obj = entry.second;
+
+    if (str_obj) {
+      std::cout << "Index " << idx << ": " << str_obj->value << std::endl;
+    } else {
+      std::cout << "Index " << idx << ": [null]" << std::endl;
     }
   }
 }

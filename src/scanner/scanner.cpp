@@ -48,6 +48,7 @@ std::unordered_map<std::string, Opcode> opcode_map = {
     {"BITSHL", Opcode::BITSHL},
     {"BITSHRL", Opcode::BITSHRL},
     {"BITSHRA", Opcode::BITSHRA},
+    {"VMCALL", Opcode::VMCALL},
     {"PUSH", Opcode::PUSH},
     {"POP", Opcode::POP},
     {"SET_GLOBAL", Opcode::SET_GLOBAL},

@@ -7,7 +7,7 @@ namespace TPV {
 
 enum class Opcode : uint8_t {
   LOADI, // rd, 32bit imm ;set reg Value as 32bit imm
-  LOADF, // rd, 32bit imm ;set reg Value as 32bit imm
+  LOADF, // rd, 32bit imm ;set reg Value as 32bit float imm
   LOADS, // rd, 32bit imm ;set reg Value as str ref from str_table
   LOADNIL, // rd          ;set reg Value as NIL
   STORES, // imm, string ;set String to str_table

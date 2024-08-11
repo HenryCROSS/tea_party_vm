@@ -1,6 +1,7 @@
 #include "parser.hpp"
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <variant>
@@ -75,9 +76,6 @@ void Parser::first_pass() {
           } else if (std::holds_alternative<Float32Type>(value_token.value)) {
             instr.float_val = std::get<Float32Type>(value_token.value);
             bytes_offset += 4;
-          } else if (std::holds_alternative<StringType>(value_token.value)) {
-            instr.str_val = std::get<StringType>(value_token.value);
-            bytes_offset += instr.str_val->value.size();
           } else {
             err_msg.push_back("Type Error at position " +
                               std::to_string(token.begin));
@@ -91,14 +89,22 @@ void Parser::first_pass() {
         }
         case Opcode::STORES: {
           bytes_offset += 1;
-          instr.int_val = std::get<Int32Type>(next_token().value);
-          bytes_offset += 4;
+          auto token = next_token();
+          if (std::holds_alternative<Int32Type>(token.value)) {
+            instr.int_val = std::get<Int32Type>(token.value);
+            bytes_offset += 4;
+          } else {
+            err_msg.push_back("Type Error at position " +
+                              std::to_string(token.begin));
+          }
+
           auto str_token = next_token();
           if (str_token.type != TokenType::STRING) {
             throw std::runtime_error("Expected string for STORES");
+          } else {
+            instr.str_val = std::get<StringType>(str_token.value);
+            bytes_offset += instr.str_val->value.size();
           }
-          instr.str_val = std::get<StringType>(str_token.value);
-          bytes_offset += instr.str_val->value.size();
           break;
         }
         case Opcode::ADD:
@@ -228,7 +234,7 @@ void Parser::second_pass() {
       }
       case Opcode::LOADS: {
         emit_byte(instr.rd->value);
-        // Handle LOADS operand
+        emit_word(instr.int_val->value);
         break;
       }
       case Opcode::LOADNIL: {
@@ -311,9 +317,10 @@ void Parser::second_pass() {
         break;
       }
       case Opcode::VMCALL: {
-          emit_word(instr.r1->value);
-          emit_word(instr.r2->value);
-          emit_word(instr.int_val->value);
+        emit_byte(instr.r1->value);
+        emit_byte(instr.r2->value);
+        emit_word(instr.int_val->value);
+        break;
       }
       default:
         err_msg.push_back("Unknown opcode");
