@@ -45,7 +45,7 @@ enum class Opcode : uint8_t {
           // = 2
           // get float to r1
           // = 3
-          // get string to int addr from r2, save ptr to r1
+          // get string from input, save ptr to r1
 
   // set register to variable
   PUSH, // r1
