@@ -1,0 +1,14 @@
+STORES 0, "Tea Party VM, Hello World!"
+STORES 1, "INT: "
+STORES 2, "FLOAT: "
+LOADS r1, 0
+LOADS r4, 1
+LOADS r5, 2
+LOADI r2, 1
+LOADF r3, 0.321
+VMCALL r1, r2, 0
+VMCALL r4, r0, 0
+VMCALL r2, r2, 0
+VMCALL r5, r0, 0
+VMCALL r3, r2, 0
+VMCALL r6, r0, 3

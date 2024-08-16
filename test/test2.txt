@@ -1,7 +1,8 @@
 LOADI  r0, -4
 LOADI r1, -1
+LOADNIL r7
 ADD r2, r0, r1
-JMP @end
+JMP_IF r100, @end
 SUB r3, r0, r1
 MUL r4, r0, r1
 end:
