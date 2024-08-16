@@ -62,7 +62,7 @@ std::unordered_map<std::string, Opcode> opcode_map = {
     {"NEW_LIST", Opcode::NEW_LIST},
     {"SET_LIST", Opcode::SET_LIST},
     {"GET_LIST", Opcode::GET_LIST},
-    {"NEW_TABEL", Opcode::NEW_TABEL},
+    {"NEW_TABEL", Opcode::NEW_TABLE},
     {"SET_TABLE", Opcode::SET_TABLE},
     {"GET_TABLE", Opcode::GET_TABLE},
     {"NEW_ARRAY", Opcode::NEW_ARRAY},
