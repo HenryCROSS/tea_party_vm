@@ -64,9 +64,9 @@ void Parser::first_pass() {
       instr.op_val = std::get<OpType>(token.value);
 
       switch (instr.op_val.value) {
-        case Opcode::LOADI:
-        case Opcode::LOADF:
-        case Opcode::LOADS: {
+        case Opcode::SETI:
+        case Opcode::SETF:
+        case Opcode::SETS: {
           instr.rd = std::get<RegisterType>(next_token().value);
           bytes_offset += 2;
           auto value_token = next_token();
@@ -76,20 +76,25 @@ void Parser::first_pass() {
           } else if (std::holds_alternative<Float32Type>(value_token.value)) {
             instr.float_val = std::get<Float32Type>(value_token.value);
             bytes_offset += 4;
+          } else if (std::holds_alternative<StringType>(value_token.value)) {
+            instr.str_val = std::get<StringType>(value_token.value);
+            bytes_offset += instr.str_val->value.size();
           } else {
             err_msg.push_back("Type Error at position " +
                               std::to_string(token.begin));
           }
           break;
         }
-        case Opcode::LOADNIL: {
+        case Opcode::SETNIL: {
           instr.rd = std::get<RegisterType>(next_token().value);
           bytes_offset += 2;
           break;
         }
-        case Opcode::STORES: {
-          bytes_offset += 1;
-          auto token = next_token();
+        case Opcode::STORE:
+        case Opcode::LOAD: {
+          instr.rd = std::get<RegisterType>(next_token().value);
+          instr.r1 = std::get<RegisterType>(next_token().value);
+          bytes_offset += 3;
           if (std::holds_alternative<Int32Type>(token.value)) {
             instr.int_val = std::get<Int32Type>(token.value);
             bytes_offset += 4;
@@ -97,15 +102,6 @@ void Parser::first_pass() {
             err_msg.push_back("Type Error at position " +
                               std::to_string(token.begin));
           }
-
-          auto str_token = next_token();
-          if (str_token.type != TokenType::STRING) {
-            throw std::runtime_error("Expected string for STORES");
-          } else {
-            instr.str_val = std::get<StringType>(str_token.value);
-            bytes_offset += instr.str_val->value.size();
-          }
-          break;
         }
         case Opcode::ADD:
         case Opcode::SUB:
@@ -220,33 +216,35 @@ void Parser::second_pass() {
     emit_byte(static_cast<uint8_t>(instr.op_val.value));
 
     switch (instr.op_val.value) {
-      case Opcode::LOADI: {
+      case Opcode::SETI: {
         emit_byte(instr.rd->value);
         emit_word(instr.int_val->value);
         break;
       }
-      case Opcode::LOADF: {
+      case Opcode::SETF: {
         emit_byte(instr.rd->value);
         uint32_t value = 0;
         std::memcpy(&value, &instr.float_val->value, sizeof(uint32_t));
         emit_word(value);
         break;
       }
-      case Opcode::LOADS: {
+      case Opcode::SETS: {
         emit_byte(instr.rd->value);
-        emit_word(instr.int_val->value);
-        break;
-      }
-      case Opcode::LOADNIL: {
-        emit_byte(instr.rd->value);
-        break;
-      }
-      case Opcode::STORES: {
-        emit_word(instr.int_val->value);
         for (const auto& ch : instr.str_val->value) {
           emit_byte(static_cast<uint8_t>(ch));
         }
         emit_byte(0);  // Null-terminator
+        break;
+      }
+      case Opcode::SETNIL: {
+        emit_byte(instr.rd->value);
+        break;
+      }
+      case Opcode::LOAD:
+      case Opcode::STORE: {
+        emit_byte(instr.rd->value);
+        emit_byte(instr.r1->value);
+        emit_word(instr.int_val->value);
         break;
       }
       case Opcode::ADD:

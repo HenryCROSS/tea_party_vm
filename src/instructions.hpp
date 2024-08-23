@@ -6,11 +6,12 @@
 namespace TPV {
 
 enum class Opcode : uint8_t {
-  LOADI, // rd, 32bit imm ;set reg Value as 32bit imm
-  LOADF, // rd, 32bit imm ;set reg Value as 32bit float imm
-  LOADS, // rd, 32bit imm ;set reg Value as str ref from str_table
-  LOADNIL, // rd          ;set reg Value as NIL
-  STORES, // imm, string ;set String to str_table
+  SETI, // rd, 32bit imm ;set reg Value as 32bit imm
+  SETF, // rd, 32bit imm ;set reg Value as 32bit float imm
+  SETS, // rd, string    ;set String to str_table, return ptr to rd
+  SETNIL, // rd          ;set reg Value as NIL
+  STORE, // rd, r1, 32bit imm ; store r1 to table based on imm, return rd idx
+  LOAD,  // rd, r1, 32bit imm ; load r1 idx from table based on imm, return rd
   ADD,  // rd, r1, r2
   SUB,  // rd, r1, r2
   MUL,  // rd, r1, r2
@@ -50,32 +51,25 @@ enum class Opcode : uint8_t {
   // set register to variable
   PUSH, // r1
   POP, // rd
-  SET_GLOBAL, // r1, imm
-  GET_GLOBAL, // rd, imm
-  SET_CONSTANT, // r1, imm
-  GET_CONSTANT, // rd, imm
-
-  SET_UPVAL, // r1, imm
-  GET_UPVAL, // rd, imm
 
   GET_LEN, // rd, r1
 
-  SET_ARG, // rd, imm
+  SET_ARG, // r1, imm
+  GET_ARG, // rd, imm
   CALL, // rd | @label
-  RETURN, //
-  CLOSURE, // Not Sure ????
+  RETURN, // rd
 
-  NEW_LIST,
-  SET_LIST, // 
-  GET_LIST, // rd, imm
+  NEW_LIST, // rd
+  SET_LIST, // rd, r1, r2
+  GET_LIST, // rd, r1, r2
 
   NEW_TABLE, // rd
-  SET_TABLE, // rd, r1, imm
-  GET_TABLE, // rd, imm
+  SET_TABLE, // rd, r1, r2
+  GET_TABLE, // rd, r1, r2
 
-  NEW_ARRAY,
-  SET_ARRAY,
-  GET_ARRAY,
+  NEW_ARRAY, // rd
+  SET_ARRAY, // rd, r1, r2
+  GET_ARRAY, // rd, r1, r2
 
   IGL,
   NOP,
