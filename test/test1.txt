@@ -1,0 +1,32 @@
+SETI r0, 10
+SETF r1, 20.5
+SETS r2, "Hello"
+SETNIL r3
+STORE r4, r0, 0
+STORE r5, r1, 1
+STORE r6, r2, 2
+LOAD r7, r4, 0
+LOAD r8, r5, 1
+LOAD r9, r6, 2
+ADD r10, r7, r7
+SUB r11, r10, r7
+MUL r12, r11, r7
+DIV r13, r12, r7
+CVT_I_D r14, r7
+CVT_D_I r15, r14
+NEGATE r16, r15
+EQ r17, r7, r15
+GT r18, r10, r11
+LT r19, r12, r13
+BITAND r20, r18, r19
+BITOR r21, r18, r19
+BITXOR r22, r20, r21
+BITNOT r23, r22
+BITSHL r24, r23, 2
+BITSHRL r25, r23, 2
+BITSHRA r26, r23, 2
+VMCALL r7, r18, 0
+VMCALL r8, r19, 1
+VMCALL r9, r20, 2
+VMCALL r10, r21, 3
+HLT
