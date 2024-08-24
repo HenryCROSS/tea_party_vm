@@ -209,6 +209,7 @@ VM_Result VM::eval_all() {
               it = this->str_table.find(idx);
             }
 
+            str.hash = idx;
             auto ptr = std::make_shared<TPV_ObjString>(str);
             this->str_table[idx] = ptr;
             rd = from_raw_value(idx);
@@ -888,7 +889,7 @@ void VM::print_regs() {
       auto&& obj_ref = std::get<TPV_Obj>(ref.value);
       if (obj_ref.type == ObjType::STRING) {
         auto&& ref = std::get<std::shared_ptr<TPV_ObjString>>(obj_ref.obj);
-        std::cout << "[string] reg " << i << " : <TPV_ObjString " << ref << "> "
+        std::cout << "[string] reg " << i << " : <TPV_ObjString " << ref->hash << "> "
                   << ref->value << "\n";
       } else if (obj_ref.type == ObjType::MAP) {
         std::cout << "[table] reg " << i << " : <TPV_ObjTable "
