@@ -784,13 +784,13 @@ VM_Result VM::eval_all() {
               auto str = std::string(input);
               auto idx = hash_string(str);
               auto it = this->str_table.find(idx);
-              do {
+              while (it != this->str_table.cend() && it->second->value != str) {
                 idx += 1;
                 it = this->str_table.find(idx);
-              } while (it != this->str_table.cend());
+              }
 
-              this->str_table[idx] =
-                  std::make_shared<TPV_ObjString>(TPV_ObjString{.value = str});
+              this->str_table[idx] = std::make_shared<TPV_ObjString>(
+                  TPV_ObjString{.hash = (size_t)idx, .value = str});
 
               this->frames.back().registers.at(r1_idx) = {
                   .type = ValueType::TPV_OBJ,
@@ -879,18 +879,19 @@ void VM::print_regs() {
     auto&& ref = this->frames.back().registers.at(i);
 
     if (ref.type == ValueType::TPV_INT) {
-      std::cout << "[int] reg " << i << " : " << std::get<TPV_INT>(ref.value) << "\n";
-    } else if (ref.type == ValueType::TPV_FLOAT) {
-      std::cout << "[float] reg " << i << " : " << std::get<TPV_FLOAT>(ref.value)
+      std::cout << "[int] reg " << i << " : " << std::get<TPV_INT>(ref.value)
                 << "\n";
+    } else if (ref.type == ValueType::TPV_FLOAT) {
+      std::cout << "[float] reg " << i << " : "
+                << std::get<TPV_FLOAT>(ref.value) << "\n";
     } else if (ref.type == ValueType::TPV_UNIT) {
       std::cout << "[unit] reg " << i << " : NIL\n";
     } else if (ref.type == ValueType::TPV_OBJ) {
       auto&& obj_ref = std::get<TPV_Obj>(ref.value);
       if (obj_ref.type == ObjType::STRING) {
         auto&& ref = std::get<std::shared_ptr<TPV_ObjString>>(obj_ref.obj);
-        std::cout << "[string] reg " << i << " : <TPV_ObjString " << ref->hash << "> "
-                  << ref->value << "\n";
+        std::cout << "[string] reg " << i << " : <TPV_ObjString " << ref->hash
+                  << "> " << ref->value << "\n";
       } else if (obj_ref.type == ObjType::MAP) {
         std::cout << "[table] reg " << i << " : <TPV_ObjTable "
                   << std::get<std::shared_ptr<TPV_ObjTable>>(obj_ref.obj)
