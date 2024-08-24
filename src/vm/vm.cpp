@@ -23,6 +23,8 @@ namespace TPV {
 
 VM::VM()
     : bytes(),
+      int32_table(),
+      float32_table(),
       str_table(),
       frames(MAX_FRAME),
       flags(),
@@ -152,7 +154,7 @@ VM_Result VM::eval_all() {
         // check if str exist in the table, and find the idx
         auto idx = hash_string(str);
         auto it = this->str_table.find(idx);
-        while (it->second->value != str || it != this->str_table.cend()) {
+        while (it != this->str_table.cend() && it->second->value != str) {
           idx += 1;
           it = this->str_table.find(idx);
         }
@@ -161,7 +163,7 @@ VM_Result VM::eval_all() {
         if (it == this->str_table.cend()) {
           auto ptr = std::make_shared<TPV_ObjString>(
               (TPV_ObjString){.hash = (size_t)idx, .value = str});
-          this->str_table.at(idx) = ptr;
+          this->str_table[idx] = ptr;
         }
 
         this->frames.back().registers.at(rd) =
@@ -171,7 +173,6 @@ VM_Result VM::eval_all() {
       }
       case Opcode::SETNIL: {
         auto rd = this->next_8_bit();
-        const auto idx = bytes_to_int32(this->next_32_bit());
 
         this->frames.back().registers.at(rd) = {.type = ValueType::TPV_UNIT,
                                                 .is_const = false,
@@ -200,9 +201,7 @@ VM_Result VM::eval_all() {
             break;
           }
           case STR_TABLE: {
-            rd = from_raw_value((int32_t)float32_table.size());
             auto str = get_str(r1);
-
             auto idx = hash_string(str.value);
             auto it = this->str_table.find(idx);
             while (it != this->str_table.cend()) {
@@ -211,12 +210,9 @@ VM_Result VM::eval_all() {
             }
 
             auto ptr = std::make_shared<TPV_ObjString>(str);
-            this->str_table.at(idx) = ptr;
+            this->str_table[idx] = ptr;
+            rd = from_raw_value(idx);
 
-            rd = {.type = ValueType::TPV_OBJ,
-                  .is_const = false,
-                  .value = (TPV_Obj){.type = ObjType::STRING,
-                                     .obj = this->str_table.at(idx)}};
             break;
           }
           default:
@@ -245,12 +241,7 @@ VM_Result VM::eval_all() {
             break;
           }
           case STR_TABLE: {
-            rd = {
-                .type = ValueType::TPV_FLOAT,
-                .is_const = false,
-                .value = (TPV_Obj){.type = ObjType::STRING,
-                                   .obj = (this->str_table.at(idx))},
-            };
+            rd = from_obj_value(this->str_table.at(idx));
             break;
           }
           default:
@@ -367,7 +358,7 @@ VM_Result VM::eval_all() {
 
         if (r1.type == ValueType::TPV_INT) {
           ref = from_raw_value(
-              static_cast<TPV_FLOAT>(std::get<TPV_FLOAT>(r1.value)));
+              static_cast<TPV_FLOAT>(std::get<TPV_INT>(r1.value)));
         } else if (r1.type == ValueType::TPV_FLOAT) {
           ref = r1;
         } else {
@@ -386,7 +377,7 @@ VM_Result VM::eval_all() {
           ref = r1;
         } else if (r1.type == ValueType::TPV_FLOAT) {
           this->frames.back().registers.at(rd) = from_raw_value(
-              static_cast<TPV_FLOAT>(std::get<TPV_INT>(r1.value)));
+              static_cast<TPV_INT>(std::get<TPV_FLOAT>(r1.value)));
         } else {
           this->errors.push_back({});
         }
@@ -887,20 +878,20 @@ void VM::print_regs() {
     auto&& ref = this->frames.back().registers.at(i);
 
     if (ref.type == ValueType::TPV_INT) {
-      std::cout << "reg " << i << " : " << std::get<TPV_INT>(ref.value) << "\n";
+      std::cout << "[int] reg " << i << " : " << std::get<TPV_INT>(ref.value) << "\n";
     } else if (ref.type == ValueType::TPV_FLOAT) {
-      std::cout << "reg " << i << " : " << std::get<TPV_FLOAT>(ref.value)
+      std::cout << "[float] reg " << i << " : " << std::get<TPV_FLOAT>(ref.value)
                 << "\n";
     } else if (ref.type == ValueType::TPV_UNIT) {
-      std::cout << "reg " << i << " : NIL\n";
+      std::cout << "[unit] reg " << i << " : NIL\n";
     } else if (ref.type == ValueType::TPV_OBJ) {
       auto&& obj_ref = std::get<TPV_Obj>(ref.value);
       if (obj_ref.type == ObjType::STRING) {
         auto&& ref = std::get<std::shared_ptr<TPV_ObjString>>(obj_ref.obj);
-        std::cout << "reg " << i << " : <TPV_ObjString " << ref << "> "
+        std::cout << "[string] reg " << i << " : <TPV_ObjString " << ref << "> "
                   << ref->value << "\n";
       } else if (obj_ref.type == ObjType::MAP) {
-        std::cout << "reg " << i << " : <TPV_ObjTable "
+        std::cout << "[table] reg " << i << " : <TPV_ObjTable "
                   << std::get<std::shared_ptr<TPV_ObjTable>>(obj_ref.obj)
                   << ">\n";
       }

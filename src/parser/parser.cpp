@@ -95,13 +95,16 @@ void Parser::first_pass() {
           instr.rd = std::get<RegisterType>(next_token().value);
           instr.r1 = std::get<RegisterType>(next_token().value);
           bytes_offset += 3;
-          if (std::holds_alternative<Int32Type>(token.value)) {
-            instr.int_val = std::get<Int32Type>(token.value);
+          auto value_token = next_token();
+          if (std::holds_alternative<Int32Type>(value_token.value)) {
+            instr.int_val = std::get<Int32Type>(value_token.value);
             bytes_offset += 4;
           } else {
             err_msg.push_back("Type Error at position " +
-                              std::to_string(token.begin));
+                              std::to_string(value_token.line) + ":" +
+                              std::to_string(value_token.begin));
           }
+          break;
         }
         case Opcode::ADD:
         case Opcode::SUB:

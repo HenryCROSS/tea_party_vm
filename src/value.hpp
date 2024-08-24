@@ -88,7 +88,7 @@ inline Value from_raw_value(TPV_FLOAT val) {
 
 inline Value from_obj_value(std::shared_ptr<TPV_ObjString> val) {
   return {
-      .type = ValueType::TPV_FLOAT,
+      .type = ValueType::TPV_OBJ,
       .is_const = false,
       .value = (TPV_Obj){.type = ObjType::STRING, .obj = val},
   };

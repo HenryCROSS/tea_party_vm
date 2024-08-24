@@ -12,6 +12,10 @@ enum class Opcode : uint8_t {
   SETNIL, // rd          ;set reg Value as NIL
   STORE, // rd, r1, 32bit imm ; store r1 to table based on imm, return rd idx, will not save space for str
   LOAD,  // rd, r1, 32bit imm ; load r1 idx from table based on imm, return rd
+         // imm=
+         // 0: INT_TABLE
+         // 1: FLOAT_TABLE
+         // 2: STR_TABLE
   ADD,  // rd, r1, r2
   SUB,  // rd, r1, r2
   MUL,  // rd, r1, r2
@@ -38,7 +42,7 @@ enum class Opcode : uint8_t {
   BITSHRA, // rd, r1, imm
 
   // for IO
-  VMCALL, // r1, (int)r2, imm
+  VMCALL, // r1, r2, imm
           // imm = 0
           // print r1 value, if r2 == int && r2 == 1, print "\n"
           // = 1
