@@ -8,9 +8,9 @@ namespace TPV {
 enum class Opcode : uint8_t {
   SETI, // rd, 32bit imm ;set reg Value as 32bit imm
   SETF, // rd, 32bit imm ;set reg Value as 32bit float imm
-  SETS, // rd, string    ;set String to str_table, return ptr to rd
+  SETS, // rd, string    ;set String to str_table, return ptr to rd, will save space for str
   SETNIL, // rd          ;set reg Value as NIL
-  STORE, // rd, r1, 32bit imm ; store r1 to table based on imm, return rd idx
+  STORE, // rd, r1, 32bit imm ; store r1 to table based on imm, return rd idx, will not save space for str
   LOAD,  // rd, r1, 32bit imm ; load r1 idx from table based on imm, return rd
   ADD,  // rd, r1, r2
   SUB,  // rd, r1, r2

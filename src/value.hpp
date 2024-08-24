@@ -86,6 +86,27 @@ inline Value from_raw_value(TPV_FLOAT val) {
   };
 }
 
+inline Value from_obj_value(std::shared_ptr<TPV_ObjString> val) {
+  return {
+      .type = ValueType::TPV_FLOAT,
+      .is_const = false,
+      .value = (TPV_Obj){.type = ObjType::STRING, .obj = val},
+  };
+}
+
+inline TPV_INT get_int32(Value val) {
+  return std::get<TPV_INT>(val.value);
+}
+
+inline TPV_FLOAT get_float32(Value val) {
+  return std::get<TPV_FLOAT>(val.value);
+}
+
+inline TPV_ObjString get_str(Value val) {
+  auto& obj = std::get<TPV_Obj>(val.value);
+  return *std::get<std::shared_ptr<TPV_ObjString>>(obj.obj);
+}
+
 }  // namespace TPV
 
 #endif  // !VALUE_HPP

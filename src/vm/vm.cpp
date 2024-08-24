@@ -1,4 +1,5 @@
 #include "vm.hpp"
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
@@ -12,6 +13,11 @@
 #include "../utils.hpp"
 
 using std::vector;
+
+#define INT_TABLE 0
+#define FLOAT_TABLE 1
+#define STR_TABLE 2
+#define TABLE_TABLE 3
 
 namespace TPV {
 
@@ -119,7 +125,7 @@ VM_Result VM::eval_all() {
     auto opcode = static_cast<Opcode>(byte);
 
     switch (opcode) {
-      case Opcode::LOADI: {
+      case Opcode::SETI: {
         auto rd = this->next_8_bit();
         const auto val = this->next_32_bit();
 
@@ -129,7 +135,7 @@ VM_Result VM::eval_all() {
 
         break;
       }
-      case Opcode::LOADF: {
+      case Opcode::SETF: {
         auto rd = this->next_8_bit();
         const auto val = this->next_32_bit();
 
@@ -139,18 +145,31 @@ VM_Result VM::eval_all() {
 
         break;
       }
-      case Opcode::LOADS: {
+      case Opcode::SETS: {
         auto rd = this->next_8_bit();
-        const auto idx = bytes_to_int32(this->next_32_bit());
-        this->frames.back().registers.at(rd) = {
-            .type = ValueType::TPV_OBJ,
-            .is_const = false,
-            .value = (TPV_Obj){.type = ObjType::STRING,
-                               .obj = this->str_table.at(idx)}};
+        const auto str = bytes_to_string(this->next_string());
+
+        // check if str exist in the table, and find the idx
+        auto idx = hash_string(str);
+        auto it = this->str_table.find(idx);
+        while (it->second->value != str || it != this->str_table.cend()) {
+          idx += 1;
+          it = this->str_table.find(idx);
+        }
+
+        // add to str_table if not exist
+        if (it == this->str_table.cend()) {
+          auto ptr = std::make_shared<TPV_ObjString>(
+              (TPV_ObjString){.hash = (size_t)idx, .value = str});
+          this->str_table.at(idx) = ptr;
+        }
+
+        this->frames.back().registers.at(rd) =
+            from_obj_value(this->str_table.at(idx));
 
         break;
       }
-      case Opcode::LOADNIL: {
+      case Opcode::SETNIL: {
         auto rd = this->next_8_bit();
         const auto idx = bytes_to_int32(this->next_32_bit());
 
@@ -160,11 +179,84 @@ VM_Result VM::eval_all() {
 
         break;
       }
-      case Opcode::STORES: {
-        const auto idx = bytes_to_int32(this->next_32_bit());
-        const auto str = bytes_to_string(this->next_string());
-        this->str_table[idx] = std::make_shared<TPV_ObjString>(
-            (TPV_ObjString){.hash = static_cast<size_t>(idx), .value = str});
+      case Opcode::STORE: {
+        // return ref idx
+        auto& rd = this->frames.back().registers.at(this->next_8_bit());
+        // store item
+        auto r1 = this->frames.back().registers.at(this->next_8_bit());
+        // type of table
+        auto imm = bytes_to_int32(this->next_32_bit());
+
+        switch (imm) {
+          case INT_TABLE: {
+            rd = from_raw_value((int32_t)int32_table.size());
+            this->int32_table[int32_table.size()] = std::get<TPV_INT>(r1.value);
+            break;
+          }
+          case FLOAT_TABLE: {
+            rd = from_raw_value((int32_t)float32_table.size());
+            this->float32_table[float32_table.size()] =
+                std::get<TPV_FLOAT>(r1.value);
+            break;
+          }
+          case STR_TABLE: {
+            rd = from_raw_value((int32_t)float32_table.size());
+            auto str = get_str(r1);
+
+            auto idx = hash_string(str.value);
+            auto it = this->str_table.find(idx);
+            while (it != this->str_table.cend()) {
+              idx += 1;
+              it = this->str_table.find(idx);
+            }
+
+            auto ptr = std::make_shared<TPV_ObjString>(str);
+            this->str_table.at(idx) = ptr;
+
+            rd = {.type = ValueType::TPV_OBJ,
+                  .is_const = false,
+                  .value = (TPV_Obj){.type = ObjType::STRING,
+                                     .obj = this->str_table.at(idx)}};
+            break;
+          }
+          default:
+            this->errors.push_back({});
+            break;
+        }
+
+        break;
+      }
+      case Opcode::LOAD: {
+        // return ref
+        auto& rd = this->frames.back().registers.at(this->next_8_bit());
+        // access idx
+        auto r1 = this->frames.back().registers.at(this->next_8_bit());
+        // type of table
+        auto imm = bytes_to_int32(this->next_32_bit());
+        auto idx = get_int32(r1);
+
+        switch (imm) {
+          case INT_TABLE: {
+            rd = from_raw_value(this->int32_table.at(idx));
+            break;
+          }
+          case FLOAT_TABLE: {
+            rd = from_raw_value(this->float32_table.at(idx));
+            break;
+          }
+          case STR_TABLE: {
+            rd = {
+                .type = ValueType::TPV_FLOAT,
+                .is_const = false,
+                .value = (TPV_Obj){.type = ObjType::STRING,
+                                   .obj = (this->str_table.at(idx))},
+            };
+            break;
+          }
+          default:
+            this->errors.push_back({});
+            break;
+        }
 
         break;
       }
@@ -770,12 +862,8 @@ VM_Result VM::eval_all() {
 
         break;
       }
-      case Opcode::SET_GLOBAL:
-      case Opcode::GET_GLOBAL:
-      case Opcode::SET_CONSTANT:
       case Opcode::CALL:
       case Opcode::RETURN:
-      case Opcode::CLOSURE:
       case Opcode::SET_LIST:
       case Opcode::GET_LIST:
       case Opcode::SET_ARRAY:
