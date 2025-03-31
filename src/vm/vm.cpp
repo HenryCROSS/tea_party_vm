@@ -8,6 +8,7 @@
 #include <memory>
 #include <variant>
 #include <vector>
+#include <string>
 #include "../error_code.hpp"
 #include "../instructions.hpp"
 #include "../utils.hpp"
@@ -772,16 +773,16 @@ VM_Result VM::eval_all() {
             break;
           }
           case 3: {
-            char* input = nullptr;
-            size_t bufsize = 0;
-            ssize_t input_size = getline(&input, &bufsize, stdin);
+            std::string input;
+            std::getline(std::cin, input);
+            size_t input_size = input.size();
 
             if (input_size != -1) {
               if (input[input_size - 1] == '\n') {
                 input[input_size - 1] = '\0';
               }
 
-              auto str = std::string(input);
+              auto str = input;
               auto idx = hash_string(str);
               auto it = this->str_table.find(idx);
               while (it != this->str_table.cend() && it->second->value != str) {
@@ -801,7 +802,6 @@ VM_Result VM::eval_all() {
               this->errors.push_back({"Failed to read input"});
             }
 
-            free(input);
             break;
           }
           default:
