@@ -811,49 +811,6 @@ VM_Result VM::eval_all() {
 
         break;
       }
-      case Opcode::NEW_TABLE: {
-        auto rd = this->next_8_bit();
-        auto& ref = this->frames.back().registers.at(rd);
-
-        auto idx = this->table_table.size();
-        auto tbl = std::make_shared<TPV_ObjTable>(TPV_ObjTable{.hash = idx});
-        this->table_table.at(idx) = tbl;
-
-        auto obj = TPV_Obj{.type = ObjType::TABLE, .obj = tbl};
-        auto val =
-            Value{.type = ValueType::TPV_OBJ, .is_const = false, .value = obj};
-
-        ref = val;
-        break;
-      }
-      case Opcode::SET_TABLE: {
-        auto rd = this->next_8_bit();
-        auto r1 = this->next_8_bit();
-        const auto imm = bytes_to_int32(this->next_32_bit());
-
-        auto& ref_r1 = this->frames.back().registers.at(r1);
-        auto& ref_rd = this->frames.back().registers.at(rd);
-
-        auto obj = std::get<TPV_Obj>(ref_rd.value);
-        auto tbl = std::get<std::shared_ptr<TPV_ObjTable>>(obj.obj);
-
-        tbl->tbl[imm] = ref_rd;
-
-        break;
-      }
-      case Opcode::GET_TABLE: {
-        auto rd = this->next_8_bit();
-        const auto imm = bytes_to_int32(this->next_32_bit());
-        auto& ref_rd = this->frames.back().registers.at(rd);
-
-        auto tbl = this->table_table[imm];
-
-        ref_rd = Value{.type = ValueType::TPV_OBJ,
-                       .is_const = false,
-                       .value = TPV_Obj{.type = ObjType::TABLE, .obj = tbl}};
-
-        break;
-      }
       case Opcode::CALL:
       case Opcode::RETURN:
       case Opcode::SET_LIST:
