@@ -34,7 +34,6 @@ class VM {
   std::unordered_map<size_t, TPV_INT> int32_table;
   std::unordered_map<size_t, TPV_FLOAT> float32_table;
   std::unordered_map<size_t, std::shared_ptr<TPV_ObjString>> str_table;
-  std::unordered_map<size_t, std::shared_ptr<TPV_ObjTable>> table_table;
 
   // to store all values
   std::vector<std::shared_ptr<TPV_Obj>> heap;

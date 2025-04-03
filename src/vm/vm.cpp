@@ -813,8 +813,10 @@ VM_Result VM::eval_all() {
       }
       case Opcode::CALL:
       case Opcode::RETURN:
+      case Opcode::NEW_LIST:
       case Opcode::SET_LIST:
       case Opcode::GET_LIST:
+      case Opcode::NEW_ARRAY:
       case Opcode::SET_ARRAY:
       case Opcode::GET_ARRAY:
       case Opcode::IGL:
@@ -849,10 +851,6 @@ void VM::print_regs() {
         auto&& ref = std::get<std::shared_ptr<TPV_ObjString>>(obj_ref.obj);
         std::cout << "[string] reg " << i << " : <TPV_ObjString " << ref->hash
                   << "> " << ref->value << "\n";
-      } else if (obj_ref.type == ObjType::MAP) {
-        std::cout << "[table] reg " << i << " : <TPV_ObjTable "
-                  << std::get<std::shared_ptr<TPV_ObjTable>>(obj_ref.obj)
-                  << ">\n";
       }
     }
   }

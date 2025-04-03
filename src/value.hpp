@@ -41,17 +41,12 @@ struct TPV_ObjUpvalue {};
 struct TPV_ObjList {};
 struct TPV_ObjMap {};
 struct TPV_ObjArray {};
-struct TPV_ObjTable {
-  size_t hash;
-  std::unordered_map<size_t, Value> tbl;
-};
 
 struct TPV_Obj {
   ObjType type;
   std::variant<std::shared_ptr<TPV_ObjString>,
                std::shared_ptr<TPV_ObjClosure>,
                std::shared_ptr<TPV_ObjModule>,
-               std::shared_ptr<TPV_ObjTable>,
                std::shared_ptr<TPV_ObjUpvalue>>
       obj;
 };
