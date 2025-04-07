@@ -18,10 +18,7 @@ enum class ObjType {
   STRING,
   UPVALUE,
   FOREIGN,
-  LIST,
-  MAP,
   ARRAY,
-  TABLE,
   UNIT
 };
 
@@ -38,13 +35,14 @@ struct TPV_ObjModule {};
 
 struct TPV_ObjUpvalue {};
 
-struct TPV_ObjList {};
-struct TPV_ObjMap {};
-struct TPV_ObjArray {};
+struct TPV_ObjArray {
+    std::vector<Value> values;
+};
 
 struct TPV_Obj {
   ObjType type;
   std::variant<std::shared_ptr<TPV_ObjString>,
+               std::shared_ptr<TPV_ObjArray>,
                std::shared_ptr<TPV_ObjClosure>,
                std::shared_ptr<TPV_ObjModule>,
                std::shared_ptr<TPV_ObjUpvalue>>

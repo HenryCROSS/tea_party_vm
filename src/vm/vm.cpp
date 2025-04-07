@@ -6,9 +6,9 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <variant>
 #include <vector>
-#include <string>
 #include "../error_code.hpp"
 #include "../instructions.hpp"
 #include "../utils.hpp"
@@ -813,12 +813,82 @@ VM_Result VM::eval_all() {
       }
       case Opcode::CALL:
       case Opcode::RETURN:
-      case Opcode::NEW_LIST:
-      case Opcode::SET_LIST:
-      case Opcode::GET_LIST:
-      case Opcode::NEW_ARRAY:
-      case Opcode::SET_ARRAY:
-      case Opcode::GET_ARRAY:
+      case Opcode::NEW_ARRAY: {
+        auto rd = this->next_8_bit();
+
+        this->frames.back().registers.at(rd) = {
+            .type = ValueType::TPV_OBJ,
+            .is_const = false,
+            .value = (TPV_Obj){.type = ObjType::ARRAY,
+                               .obj = std::make_shared<TPV_ObjArray>(
+                                   TPV_ObjArray{.values = {}})}};
+        break;
+      }
+      case Opcode::SET_ARRAY: {
+        auto rd = this->next_8_bit();
+        const auto r1 = this->frames.back().registers.at(this->next_8_bit());
+        const auto r2 = this->frames.back().registers.at(this->next_8_bit());
+
+        auto& ref = this->frames.back().registers.at(rd);
+        if (r1.type == ValueType::TPV_OBJ && r2.type == ValueType::TPV_INT) {
+          auto list_ref = std::get<TPV_Obj>(r1.value);
+          auto list_ptr = std::get<std::shared_ptr<TPV_ObjArray>>(list_ref.obj);
+          list_ptr->values.at(std::get<TPV_INT>(r2.value)) =
+              this->frames.back().registers.at(rd);
+        } else {
+          this->errors.push_back({});
+        }
+
+        break;
+      }
+      case Opcode::GET_ARRAY: {
+        auto rd = this->next_8_bit();
+        const auto r1 = this->frames.back().registers.at(this->next_8_bit());
+        const auto r2 = this->frames.back().registers.at(this->next_8_bit());
+
+        auto& ref = this->frames.back().registers.at(rd);
+        if (r1.type == ValueType::TPV_OBJ && r2.type == ValueType::TPV_INT) {
+          auto list_ref = std::get<TPV_Obj>(r1.value);
+          auto list_ptr = std::get<std::shared_ptr<TPV_ObjArray>>(list_ref.obj);
+          ref = list_ptr->values.at(std::get<TPV_INT>(r2.value));
+        } else {
+          this->errors.push_back({});
+        }
+
+        break;
+      }
+      case Opcode::RM_ARRAY: {
+        auto rd = this->next_8_bit();
+        const auto r1 = this->frames.back().registers.at(this->next_8_bit());
+        const auto r2 = this->frames.back().registers.at(this->next_8_bit());
+
+        auto& ref = this->frames.back().registers.at(rd);
+        if (r1.type == ValueType::TPV_OBJ && r2.type == ValueType::TPV_INT) {
+          auto list_ref = std::get<TPV_Obj>(r1.value);
+          auto list_ptr = std::get<std::shared_ptr<TPV_ObjArray>>(list_ref.obj);
+          list_ptr->values.erase(list_ptr->values.begin() +
+                                 std::get<TPV_INT>(r2.value));
+        } else {
+          this->errors.push_back({});
+        }
+
+        break;
+      }
+      case Opcode::GET_ARRAY_LEN: {
+        auto rd = this->next_8_bit();
+        const auto r1 = this->frames.back().registers.at(this->next_8_bit());
+
+        auto& ref = this->frames.back().registers.at(rd);
+        if (r1.type == ValueType::TPV_OBJ) {
+          auto list_ref = std::get<TPV_Obj>(r1.value);
+          auto list_ptr = std::get<std::shared_ptr<TPV_ObjArray>>(list_ref.obj);
+          ref = from_raw_value((TPV_INT)list_ptr->values.size());
+        } else {
+          this->errors.push_back({});
+        }
+
+        break;
+      }
       case Opcode::IGL:
         break;
       case Opcode::NOP:
