@@ -96,7 +96,6 @@ bool VM::load_bytes(const vector<uint8_t> instructions) {
       case Opcode::FUNCDEF_G: {
         auto func = new TPV_Function();
 
-        // TODO: why I need rd here?
         it += 1;  // skip FUNCDEF
         it += 1;  // skip r1
         it += 4;  // skip imm1
