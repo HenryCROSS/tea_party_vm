@@ -1,14 +1,14 @@
-LOADI r1, 12345
-LOADF r2, 3.14
-STORES 0, "Hello, World!"
-LOADS r3, 0
+SETI r1, 5
+SETI r2, 3
+SETI r3, 1
 ADD r4, r1, r2
 SUB r5, r2, r3
 MUL r6, r1, r5
 DIV r7, r6, r1
 CVT_I_D r12, r1
-CVT_D_I r1, r12
 NEGATE r2, r1
+SETF r11, 0.23
+CVT_D_I r12, r11
 HLT
 JMP 1024
 EQ r1, r2, r3
