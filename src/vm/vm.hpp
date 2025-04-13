@@ -11,6 +11,8 @@
 
 namespace TPV {
 const int32_t MAX_FRAME = 2048;
+const int32_t MAX_STACKS = 2048;
+const int32_t MAX_REGISTERS = 256;
 
 struct FLAGS {
   bool eq_flag = false;
@@ -23,13 +25,16 @@ struct FLAGS {
 struct Frame {
   std::vector<Value> registers;
   std::vector<Value> stack;
+  uint32_t pc = 0;
+  TPV_Function* function = nullptr;
 };
 
 class VM {
  private:
  public:
-  std::vector<uint8_t> bytes;
+//   std::vector<uint8_t> bytes;
   std::vector<Frame> frames;
+  std::vector<TPV_Function> functions;
 
   std::unordered_map<size_t, TPV_INT> int32_table;
   std::unordered_map<size_t, TPV_FLOAT> float32_table;
@@ -39,11 +44,6 @@ class VM {
   std::vector<std::shared_ptr<TPV_Obj>> heap;
   std::vector<Error> errors;
   FLAGS flags;
-  uint32_t pc = 0;
-  uint32_t code_begin = 0;
-  uint32_t code_size = 0;
-  uint32_t data_begin = 0;
-  uint32_t data_size = 0;
   bool is_running;
 
   uint8_t next_8_bit();

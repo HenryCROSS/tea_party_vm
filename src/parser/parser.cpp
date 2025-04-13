@@ -54,6 +54,10 @@ void Parser::emit_word(uint32_t word) {
   bytecodes.push_back(word & 0xFF);
 }
 
+/// The first pass processes the tokens and generates instructions. It also
+/// collects labels and their corresponding byte offsets. The byte offset is
+/// used to calculate the final bytecode size. The instructions are stored in
+/// the `instructions` vector, and labels are stored in the `labels` map.
 void Parser::first_pass() {
   uint32_t bytes_offset = 0;
   while (offset < tokens.tokens.size()) {
@@ -197,6 +201,28 @@ void Parser::first_pass() {
           }
           break;
         }
+        case Opcode::GET_ARRAY:
+        case Opcode::SET_ARRAY:
+        case Opcode::RM_ARRAY:{
+            instr.rd = std::get<RegisterType>(next_token().value);
+            instr.r1 = std::get<RegisterType>(next_token().value);
+            instr.r2 = std::get<RegisterType>(next_token().value);
+            bytes_offset += 4;
+            break;
+        }
+        case Opcode::GET_ARRAY_LEN: {
+          instr.rd = std::get<RegisterType>(next_token().value);
+          instr.r1 = std::get<RegisterType>(next_token().value);
+          bytes_offset += 3;
+          break;
+        }
+        case Opcode::NEW_ARRAY:
+        case Opcode::PUSH:
+        case Opcode::POP: {
+          instr.r1 = std::get<RegisterType>(next_token().value);
+          bytes_offset += 2;
+          break;
+        }
         default:
           err_msg.push_back("Unknown opcode at position " +
                             std::to_string(token.begin));
@@ -214,6 +240,8 @@ void Parser::first_pass() {
   }
 }
 
+/// The second pass generates the bytecode based on the instructions and labels
+/// collected during the first pass. It replaces label references with their
 void Parser::second_pass() {
   for (const auto& instr : instructions) {
     emit_byte(static_cast<uint8_t>(instr.op_val.value));

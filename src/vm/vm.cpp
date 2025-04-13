@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <format>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -12,6 +13,8 @@
 #include "../error_code.hpp"
 #include "../instructions.hpp"
 #include "../utils.hpp"
+#include "common.hpp"
+#include "value.hpp"
 
 using std::vector;
 
@@ -23,20 +26,34 @@ using std::vector;
 namespace TPV {
 
 VM::VM()
-    : bytes(),
-      int32_table(),
+    : int32_table(),
       float32_table(),
       str_table(),
       frames(MAX_FRAME),
       flags(),
-      pc(0),
       is_running(true) {
-  this->frames.push_back({.registers = vector<Value>(256)});
+  auto& current_frame = this->frames.back();
+  current_frame.function = new TPV_Function();
+  current_frame.function->bytes = std::vector<uint8_t>();
+  current_frame.function->arity = 0;
+  current_frame.function->name = "";
+  current_frame.pc = 0;
+  current_frame.registers = std::vector<Value>(MAX_REGISTERS);
+  current_frame.stack = std::vector<Value>(MAX_STACKS);
+  current_frame.stack.reserve(MAX_REGISTERS);
+  current_frame.registers.reserve(MAX_STACKS);
+  this->frames.push_back(current_frame);
+  this->frames.back().function = current_frame.function;
+  this->frames.back().pc = 0;
 }
 
 uint8_t VM::next_8_bit() {
-  auto byte = this->bytes.at(pc);
-  pc += 1;
+  auto& current_frame = this->frames.back();
+  if (current_frame.pc >= current_frame.function->bytes.size()) {
+    throw std::out_of_range("No more bytes available");
+  }
+  auto byte = current_frame.function->bytes.at(current_frame.pc);
+  current_frame.pc += 1;
 
   return byte;
 }
@@ -67,8 +84,44 @@ std::vector<uint8_t> VM::next_string() {
 }
 
 bool VM::load_bytes(const vector<uint8_t> instructions) {
-  this->bytes.insert(this->bytes.cend(), instructions.cbegin(),
-                     instructions.cend());
+  auto& current_frame = this->frames.back();
+  auto it = instructions.cbegin();
+  auto end = instructions.cend();
+  const auto END_FUNC = static_cast<uint8_t>(Opcode::FUNCEND);
+
+  while (it != end) {
+    auto opcode = static_cast<Opcode>(*it);
+    switch (opcode) {
+      case Opcode::FUNCDEF:
+      case Opcode::FUNCDEF_G: {
+        auto func = new TPV_Function();
+
+        // TODO: why I need rd here?
+        it += 1;  // skip FUNCDEF
+        it += 1;  // skip r1
+        it += 4;  // skip imm1
+
+        while (it != end && *it != END_FUNC) {
+          func->bytes.push_back(*it);
+          it += 1;
+        }
+
+        // if not end, then error
+        if (it == end && *it != END_FUNC) {
+          throw std::runtime_error("FUNCDEF without FUNCEND");
+        }
+
+        this->functions.push_back(*func);
+        break;
+      }
+      default:
+        current_frame.function->bytes.push_back(*it);
+        break;
+    }
+
+    // next byte
+    it += 1;
+  }
 
   return true;
 }
@@ -90,7 +143,7 @@ bool VM::run_bytecode_file(std::string_view path) {
   }
   out.append(buf, 0, stream.gcount());
 
-  this->bytes = std::vector<uint8_t>(out.cbegin(), out.cend());
+  load_bytes(std::vector<uint8_t>(out.cbegin(), out.cend()));
 
   return true;
 }
@@ -121,7 +174,8 @@ bool VM::run_src_file(std::string_view path) {
 }
 
 VM_Result VM::eval_all() {
-  while (is_running && this->bytes.size() > this->pc) {
+  while (is_running &&
+         this->frames.back().function->bytes.size() > this->frames.back().pc) {
     auto byte = this->next_8_bit();
 
     // decoding
@@ -192,13 +246,12 @@ VM_Result VM::eval_all() {
         switch (imm) {
           case INT_TABLE: {
             rd = from_raw_value((int32_t)int32_table.size());
-            this->int32_table[int32_table.size()] = std::get<TPV_INT>(r1.value);
+            this->int32_table[int32_table.size()] = get_int32(r1);
             break;
           }
           case FLOAT_TABLE: {
             rd = from_raw_value((int32_t)float32_table.size());
-            this->float32_table[float32_table.size()] =
-                std::get<TPV_FLOAT>(r1.value);
+            this->float32_table[float32_table.size()] = get_float32(r1);
             break;
           }
           case STR_TABLE: {
@@ -217,9 +270,13 @@ VM_Result VM::eval_all() {
 
             break;
           }
-          default:
-            this->errors.push_back({});
+          default: {
+            this->errors.push_back(
+                {.msg = std::format(
+                     "Type Error: STORE operation on non-exist table type {}",
+                     imm)});
             break;
+          }
         }
 
         break;
@@ -246,9 +303,13 @@ VM_Result VM::eval_all() {
             rd = from_obj_value(this->str_table.at(idx));
             break;
           }
-          default:
-            this->errors.push_back({});
+          default: {
+            this->errors.push_back(
+                {.msg = std::format(
+                     "Type Error: LOAD operation on non-exist table type {}",
+                     imm)});
             break;
+          }
         }
 
         break;
@@ -261,13 +322,14 @@ VM_Result VM::eval_all() {
         auto& ref = this->frames.back().registers.at(rd);
         if (r1.type == r2.type) {
           if (r1.type == ValueType::TPV_INT) {
-            ref = from_raw_value(std::get<TPV_INT>(r1.value) +
-                                 std::get<TPV_INT>(r2.value));
+            ref = from_raw_value(get_int32(r1) + get_int32(r2));
           } else if (r1.type == ValueType::TPV_FLOAT) {
-            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) +
-                                 std::get<TPV_FLOAT>(r2.value));
+            ref = from_raw_value(get_float32(r1) + get_float32(r2));
           } else {
-            this->errors.push_back({});
+            this->errors.push_back(
+                {.msg = std::format("Type Error: ADD operation on {} and {}",
+                                    get_value_type_name(r1.type),
+                                    get_value_type_name(r2.type))});
           }
         } else {
           this->errors.push_back({});
@@ -284,13 +346,14 @@ VM_Result VM::eval_all() {
 
         if (r1.type == r2.type) {
           if (r1.type == ValueType::TPV_INT) {
-            ref = from_raw_value(std::get<TPV_INT>(r1.value) -
-                                 std::get<TPV_INT>(r2.value));
+            ref = from_raw_value(get_int32(r1) - get_int32(r2));
           } else if (r1.type == ValueType::TPV_FLOAT) {
-            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) -
-                                 std::get<TPV_FLOAT>(r2.value));
+            ref = from_raw_value(get_float32(r1) - get_float32(r2));
           } else {
-            this->errors.push_back({});
+            this->errors.push_back(
+                {.msg = std::format("Type Error: SUB operation on {} and {}",
+                                    get_value_type_name(r1.type),
+                                    get_value_type_name(r2.type))});
           }
         } else {
           this->errors.push_back({});
@@ -307,13 +370,14 @@ VM_Result VM::eval_all() {
 
         if (r1.type == r2.type) {
           if (r1.type == ValueType::TPV_INT) {
-            ref = from_raw_value(std::get<TPV_INT>(r1.value) *
-                                 std::get<TPV_INT>(r2.value));
+            ref = from_raw_value(get_int32(r1) * get_int32(r2));
           } else if (r1.type == ValueType::TPV_FLOAT) {
-            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) *
-                                 std::get<TPV_FLOAT>(r2.value));
+            ref = from_raw_value(get_float32(r1) * get_float32(r2));
           } else {
-            this->errors.push_back({});
+            this->errors.push_back(
+                {.msg = std::format("Type Error: MUL operation on {} and {}",
+                                    get_value_type_name(r1.type),
+                                    get_value_type_name(r2.type))});
           }
         } else {
           this->errors.push_back({});
@@ -333,18 +397,19 @@ VM_Result VM::eval_all() {
             if (std::get<TPV_INT>(r2.value) == 0) {
               this->errors.push_back({});
             } else {
-              ref = from_raw_value(std::get<TPV_INT>(r1.value) /
-                                   std::get<TPV_INT>(r2.value));
+              ref = from_raw_value(get_int32(r1) / get_int32(r2));
             }
           } else if (r1.type == ValueType::TPV_FLOAT) {
             if (std::get<TPV_FLOAT>(r2.value) == 0.0) {
               this->errors.push_back({});
             } else {
-              ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) /
-                                   std::get<TPV_FLOAT>(r2.value));
+              ref = from_raw_value(get_float32(r1) / get_float32(r2));
             }
           } else {
-            this->errors.push_back({});
+            this->errors.push_back(
+                {.msg = std::format("Type Error: DIV operation on {} and {}",
+                                    get_value_type_name(r1.type),
+                                    get_value_type_name(r2.type))});
           }
         } else {
           this->errors.push_back({});
@@ -359,12 +424,13 @@ VM_Result VM::eval_all() {
         auto& ref = this->frames.back().registers.at(rd);
 
         if (r1.type == ValueType::TPV_INT) {
-          ref = from_raw_value(
-              static_cast<TPV_FLOAT>(std::get<TPV_INT>(r1.value)));
+          ref = from_raw_value(static_cast<TPV_FLOAT>(get_int32(r1)));
         } else if (r1.type == ValueType::TPV_FLOAT) {
           ref = r1;
         } else {
-          this->errors.push_back({});
+          this->errors.push_back(
+              {.msg = std::format("Type Error: CVT_I_D operation on {}",
+                                  get_value_type_name(r1.type))});
         }
 
         break;
@@ -378,10 +444,12 @@ VM_Result VM::eval_all() {
         if (r1.type == ValueType::TPV_INT) {
           ref = r1;
         } else if (r1.type == ValueType::TPV_FLOAT) {
-          this->frames.back().registers.at(rd) = from_raw_value(
-              static_cast<TPV_INT>(std::get<TPV_FLOAT>(r1.value)));
+          this->frames.back().registers.at(rd) =
+              from_raw_value(static_cast<TPV_INT>(get_float32(r1)));
         } else {
-          this->errors.push_back({});
+          this->errors.push_back(
+              {.msg = std::format("Type Error: CVT_D_I operation on {}",
+                                  get_value_type_name(r1.type))});
         }
 
         break;
@@ -393,13 +461,15 @@ VM_Result VM::eval_all() {
         auto& ref = this->frames.back().registers.at(rd);
 
         if (r1.type == ValueType::TPV_INT) {
-          this->frames.back().registers.at(rd) = from_raw_value(
-              static_cast<TPV_FLOAT>(-std::get<TPV_INT>(r1.value)));
+          this->frames.back().registers.at(rd) =
+              from_raw_value(static_cast<TPV_FLOAT>(-get_int32(r1)));
         } else if (r1.type == ValueType::TPV_FLOAT) {
-          this->frames.back().registers.at(rd) = from_raw_value(
-              static_cast<TPV_FLOAT>(-std::get<TPV_FLOAT>(r1.value)));
+          this->frames.back().registers.at(rd) =
+              from_raw_value(static_cast<TPV_FLOAT>(-get_float32(r1)));
         } else {
-          this->errors.push_back({});
+          this->errors.push_back(
+              {.msg = std::format("Type Error: NEGATE operation on {}",
+                                  get_value_type_name(r1.type))});
         }
 
         break;
@@ -410,7 +480,7 @@ VM_Result VM::eval_all() {
       }
       case Opcode::JMP: {
         const auto new_pc = bytes_to_int32(this->next_32_bit());
-        this->pc = new_pc;
+        this->frames.back().pc = new_pc;
         break;
       }
       case Opcode::JMP_IF: {
@@ -418,13 +488,13 @@ VM_Result VM::eval_all() {
         const auto new_pc = bytes_to_int32(this->next_32_bit());
 
         if (r1.type == ValueType::TPV_INT) {
-          auto val = std::get<TPV_INT>(r1.value);
+          auto val = get_int32(r1);
           if (val)
-            this->pc = new_pc;
+            this->frames.back().pc = new_pc;
         } else if (r1.type == ValueType::TPV_FLOAT) {
-          auto val = std::get<TPV_FLOAT>(r1.value);
+          auto val = get_float32(r1);
           if (val)
-            this->pc = new_pc;
+            this->frames.back().pc = new_pc;
         } else {
           this->errors.push_back({});
         }
@@ -439,13 +509,14 @@ VM_Result VM::eval_all() {
 
         if (r1.type == r2.type) {
           if (r1.type == ValueType::TPV_INT) {
-            ref = from_raw_value(std::get<TPV_INT>(r1.value) ==
-                                 std::get<TPV_INT>(r2.value));
+            ref = from_raw_value(get_int32(r1) == get_int32(r2));
           } else if (r1.type == ValueType::TPV_FLOAT) {
-            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) ==
-                                 std::get<TPV_FLOAT>(r2.value));
+            ref = from_raw_value(get_float32(r1) == get_float32(r2));
           } else {
-            this->errors.push_back({});
+            this->errors.push_back(
+                {.msg = std::format("Type Error: EQ operation on {} and {}",
+                                    get_value_type_name(r1.type),
+                                    get_value_type_name(r2.type))});
           }
         } else {
           this->errors.push_back({});
@@ -462,13 +533,14 @@ VM_Result VM::eval_all() {
 
         if (r1.type == r2.type) {
           if (r1.type == ValueType::TPV_INT) {
-            ref = from_raw_value(std::get<TPV_INT>(r1.value) !=
-                                 std::get<TPV_INT>(r2.value));
+            ref = from_raw_value(get_int32(r1) != get_int32(r2));
           } else if (r1.type == ValueType::TPV_FLOAT) {
-            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) !=
-                                 std::get<TPV_FLOAT>(r2.value));
+            ref = from_raw_value(get_float32(r1) != get_float32(r2));
           } else {
-            this->errors.push_back({});
+            this->errors.push_back(
+                {.msg = std::format("Type Error: NEQ operation on {} and {}",
+                                    get_value_type_name(r1.type),
+                                    get_value_type_name(r2.type))});
           }
         } else {
           this->errors.push_back({});
@@ -485,13 +557,14 @@ VM_Result VM::eval_all() {
 
         if (r1.type == r2.type) {
           if (r1.type == ValueType::TPV_INT) {
-            ref = from_raw_value(std::get<TPV_INT>(r1.value) >
-                                 std::get<TPV_INT>(r2.value));
+            ref = from_raw_value(get_int32(r1) > get_int32(r2));
           } else if (r1.type == ValueType::TPV_FLOAT) {
-            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) >
-                                 std::get<TPV_FLOAT>(r2.value));
+            ref = from_raw_value(get_float32(r1) > get_float32(r2));
           } else {
-            this->errors.push_back({});
+            this->errors.push_back(
+                {.msg = std::format("Type Error: GT operation on {} and {}",
+                                    get_value_type_name(r1.type),
+                                    get_value_type_name(r2.type))});
           }
         } else {
           this->errors.push_back({});
@@ -508,13 +581,14 @@ VM_Result VM::eval_all() {
 
         if (r1.type == r2.type) {
           if (r1.type == ValueType::TPV_INT) {
-            ref = from_raw_value(std::get<TPV_INT>(r1.value) >=
-                                 std::get<TPV_INT>(r2.value));
+            ref = from_raw_value(get_int32(r1) >= get_int32(r2));
           } else if (r1.type == ValueType::TPV_FLOAT) {
-            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) >=
-                                 std::get<TPV_FLOAT>(r2.value));
+            ref = from_raw_value(get_float32(r1) >= get_float32(r2));
           } else {
-            this->errors.push_back({});
+            this->errors.push_back(
+                {.msg = std::format("Type Error: GTE operation on {} and {}",
+                                    get_value_type_name(r1.type),
+                                    get_value_type_name(r2.type))});
           }
         } else {
           this->errors.push_back({});
@@ -531,13 +605,14 @@ VM_Result VM::eval_all() {
 
         if (r1.type == r2.type) {
           if (r1.type == ValueType::TPV_INT) {
-            ref = from_raw_value(std::get<TPV_INT>(r1.value) <
-                                 std::get<TPV_INT>(r2.value));
+            ref = from_raw_value(get_int32(r1) < get_int32(r2));
           } else if (r1.type == ValueType::TPV_FLOAT) {
-            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) <
-                                 std::get<TPV_FLOAT>(r2.value));
+            ref = from_raw_value(get_float32(r1) < get_float32(r2));
           } else {
-            this->errors.push_back({});
+            this->errors.push_back(
+                {.msg = std::format("Type Error: LT operation on {} and {}",
+                                    get_value_type_name(r1.type),
+                                    get_value_type_name(r2.type))});
           }
         } else {
           this->errors.push_back({});
@@ -554,13 +629,14 @@ VM_Result VM::eval_all() {
 
         if (r1.type == r2.type) {
           if (r1.type == ValueType::TPV_INT) {
-            ref = from_raw_value(std::get<TPV_INT>(r1.value) <=
-                                 std::get<TPV_INT>(r2.value));
+            ref = from_raw_value(get_int32(r1) <= get_int32(r2));
           } else if (r1.type == ValueType::TPV_FLOAT) {
-            ref = from_raw_value(std::get<TPV_FLOAT>(r1.value) <=
-                                 std::get<TPV_FLOAT>(r2.value));
+            ref = from_raw_value(get_float32(r1) <= get_float32(r2));
           } else {
-            this->errors.push_back({});
+            this->errors.push_back(
+                {.msg = std::format("Type Error: LTE operation on {} and {}",
+                                    get_value_type_name(r1.type),
+                                    get_value_type_name(r2.type))});
           }
         } else {
           this->errors.push_back({});
@@ -577,13 +653,18 @@ VM_Result VM::eval_all() {
 
         if (r1.type == r2.type) {
           if (r1.type == ValueType::TPV_INT) {
-            ref = from_raw_value(std::get<TPV_INT>(r1.value) &
-                                 std::get<TPV_INT>(r2.value));
+            ref = from_raw_value(get_int32(r1) & get_int32(r2));
           } else {
-            this->errors.push_back({});
+            this->errors.push_back(
+                {.msg = std::format("Type Error: BITAND operation on {} and {}",
+                                    get_value_type_name(r1.type),
+                                    get_value_type_name(r2.type))});
           }
         } else {
-          this->errors.push_back({});
+          this->errors.push_back(
+              {.msg = std::format("Type Error: BITAND operation on {} and {}",
+                                  get_value_type_name(r1.type),
+                                  get_value_type_name(r2.type))});
         }
 
         break;
@@ -597,13 +678,18 @@ VM_Result VM::eval_all() {
 
         if (r1.type == r2.type) {
           if (r1.type == ValueType::TPV_INT) {
-            ref = from_raw_value(std::get<TPV_INT>(r1.value) |
-                                 std::get<TPV_INT>(r2.value));
+            ref = from_raw_value(get_int32(r1) | get_int32(r2));
           } else {
-            this->errors.push_back({});
+            this->errors.push_back(
+                {.msg = std::format("Type Error: BITOR operation on {} and {}",
+                                    get_value_type_name(r1.type),
+                                    get_value_type_name(r2.type))});
           }
         } else {
-          this->errors.push_back({});
+          this->errors.push_back(
+              {.msg = std::format("Type Error: BITOR operation on {} and {}",
+                                  get_value_type_name(r1.type),
+                                  get_value_type_name(r2.type))});
         }
 
         break;
@@ -617,13 +703,18 @@ VM_Result VM::eval_all() {
 
         if (r1.type == r2.type) {
           if (r1.type == ValueType::TPV_INT) {
-            ref = from_raw_value(std::get<TPV_INT>(r1.value) ^
-                                 std::get<TPV_INT>(r2.value));
+            ref = from_raw_value(get_int32(r1) ^ get_int32(r2));
           } else {
-            this->errors.push_back({});
+            this->errors.push_back(
+                {.msg = std::format("Type Error: BITXOR operation on {} and {}",
+                                    get_value_type_name(r1.type),
+                                    get_value_type_name(r2.type))});
           }
         } else {
-          this->errors.push_back({});
+          this->errors.push_back(
+              {.msg = std::format("Type Error: BITXOR operation on {} and {}",
+                                  get_value_type_name(r1.type),
+                                  get_value_type_name(r2.type))});
         }
 
         break;
@@ -635,9 +726,11 @@ VM_Result VM::eval_all() {
         auto& ref = this->frames.back().registers.at(rd);
 
         if (r1.type == ValueType::TPV_INT) {
-          ref = from_raw_value(~std::get<TPV_INT>(r1.value));
+          ref = from_raw_value(~get_int32(r1));
         } else {
-          this->errors.push_back({});
+          this->errors.push_back(
+              {.msg = std::format("Type Error: BITNOT operation on {}",
+                                  get_value_type_name(r1.type))});
         }
 
         break;
@@ -650,9 +743,11 @@ VM_Result VM::eval_all() {
         auto& ref = this->frames.back().registers.at(rd);
 
         if (r1.type == ValueType::TPV_INT) {
-          ref = from_raw_value(std::get<TPV_INT>(r1.value) << imm);
+          ref = from_raw_value(get_int32(r1) << imm);
         } else {
-          this->errors.push_back({});
+          this->errors.push_back(
+              {.msg = std::format("Type Error: BITSHL operation on {}",
+                                  get_value_type_name(r1.type))});
         }
 
         break;
@@ -675,7 +770,9 @@ VM_Result VM::eval_all() {
             ref = from_raw_value(val >> imm);
           }
         } else {
-          this->errors.push_back({});
+          this->errors.push_back(
+              {.msg = std::format("Type Error: BITSHRL operation on {}",
+                                  get_value_type_name(r1.type))});
         }
 
         break;
@@ -688,9 +785,11 @@ VM_Result VM::eval_all() {
         auto& ref = this->frames.back().registers.at(rd);
 
         if (r1.type == ValueType::TPV_INT) {
-          ref = from_raw_value(std::get<TPV_INT>(r1.value) >> imm);
+          ref = from_raw_value(get_int32(r1) >> imm);
         } else {
-          this->errors.push_back({});
+          this->errors.push_back(
+              {.msg = std::format("Type Error: BITSHRA operation on {}",
+                                  get_value_type_name(r1.type))});
         }
 
         break;
@@ -715,23 +814,21 @@ VM_Result VM::eval_all() {
           case 0: {
             const auto& r1 = this->frames.back().registers.at(r1_idx);
             if (r1.type == ValueType::TPV_INT) {
-              const auto num = std::get<TPV_INT>(r1.value);
+              const auto num = get_int32(r1);
               std::printf("%d", num);
             } else if (r1.type == ValueType::TPV_FLOAT) {
-              const auto num = std::get<TPV_FLOAT>(r1.value);
+              const auto num = get_float32(r1);
               std::printf("%f", num);
             } else if (r1.type == ValueType::TPV_OBJ) {
-              const auto str = std::get<TPV_Obj>(r1.value);
-              const auto ptr =
-                  std::get<std::shared_ptr<TPV_ObjString>>(str.obj);
-              std::printf("%s", ptr->value.c_str());
+              const auto obj = get_str_ptr(r1);
+              std::printf("%s", obj->value.c_str());
             } else {
               this->errors.push_back({"Nothing in the register"});
             }
 
             const auto& r2 = this->frames.back().registers.at(r2_idx);
             if (r2.type == ValueType::TPV_INT) {
-              const auto flag = std::get<TPV_INT>(r2.value);
+              const auto flag = get_int32(r2);
               if (flag == 1) {
                 std::printf("\n");
               }
@@ -747,7 +844,7 @@ VM_Result VM::eval_all() {
               long int input = strtol(buffer, &endptr, 10);
               if (*endptr == '\n' || *endptr == '\0') {
                 this->frames.back().registers.at(r1_idx) =
-                    from_raw_value((TPV_INT)input);
+                    from_raw_value(static_cast<TPV_INT>(input));
               } else {
                 this->errors.push_back({"Invalid integer input"});
               }
@@ -763,7 +860,7 @@ VM_Result VM::eval_all() {
               float input = strtof(buffer, &endptr);
               if (*endptr == '\n' || *endptr == '\0') {
                 this->frames.back().registers.at(r1_idx) =
-                    from_raw_value((TPV_FLOAT)input);
+                    from_raw_value(static_cast<TPV_FLOAT>(input));
               } else {
                 this->errors.push_back({"Invalid integer input"});
               }
@@ -811,8 +908,29 @@ VM_Result VM::eval_all() {
 
         break;
       }
-      case Opcode::CALL:
-      case Opcode::RETURN:
+      case Opcode::CALL: {
+        auto rd = this->next_8_bit();
+        const auto r1 = this->frames.back().registers.at(this->next_8_bit());
+        const auto r1_value = get_int32(r1);
+        const auto imm1 = bytes_to_int32(this->next_32_bit());
+
+        auto& ref = this->frames.back().registers.at(rd);
+        if (r1_value == 0) {
+          auto& func = this->functions.at(imm1);
+          auto new_frame = Frame{.registers = this->frames.back().registers,
+                                 .stack = {},
+                                 .pc = 0,
+                                 .function = &func};
+          this->frames.push_back(new_frame);
+        } else {
+          this->errors.push_back({});
+        }
+
+        break;
+      }
+      case Opcode::RETURN: {
+        break;
+      }
       case Opcode::NEW_ARRAY: {
         auto rd = this->next_8_bit();
 

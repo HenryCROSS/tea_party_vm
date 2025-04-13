@@ -58,11 +58,19 @@ enum class Opcode : uint8_t {
   PUSH,  // r1
   POP,   // rd
 
-  GET_LEN,  // rd, r1
-
+  FUNCDEF,  // r1, 32bit imm1 | @:label
+  // r1 = 0: define function in current module
+  // imm1 = address of function in current module
+  FUNCDEF_G,  // r1, 32bit imm1 | @:label
+  // r1 = 0: define function in global module
+  // imm1 = address of function in current module
+  FUNCEND,
   SET_ARG,  // r1, imm
   GET_ARG,  // rd, imm
-  CALL,     // rd | @label
+  CALL,     // rd, r1, 32bit imm1 | @:label
+            // rd = return address
+            // r1 = 0: call function in current module
+            // imm1 = address of function in current module
   RETURN,   // rd
 
   NEW_ARRAY,      // rd
