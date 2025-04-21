@@ -1,0 +1,13 @@
+CompileFlags:
+  Add: [
+    -std=c++23,
+    # -fmodules-ts,          # 启用模块支持
+    -fcxx-modules          # 使用 C++ 模块
+  ]
+
+Index:
+  Background: Build
+
+Diagnostics:
+  Suppress: ["-Wc++23-extensions"]
+  UnusedIncludes: true

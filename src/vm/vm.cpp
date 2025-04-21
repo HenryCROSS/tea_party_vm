@@ -10,11 +10,15 @@
 #include <string>
 #include <variant>
 #include <vector>
+#include <print>
 #include "../error_code.hpp"
 #include "../instructions.hpp"
+#include "../parser/parser.hpp"
+#include "../scanner/scanner.hpp"
 #include "../utils.hpp"
 #include "common.hpp"
 #include "value.hpp"
+
 
 using std::vector;
 
@@ -144,6 +148,8 @@ bool VM::run_bytecode_file(std::string_view path) {
 
   load_bytes(std::vector<uint8_t>(out.cbegin(), out.cend()));
 
+  eval_all();
+
   return true;
 }
 
@@ -164,10 +170,27 @@ bool VM::run_src_file(std::string_view path) {
   }
   out.append(buf, 0, stream.gcount());
 
-  // TODO: parse to byte code
+  auto tokens_opt = scan_all(out);
 
-  // TODO: insert to this->bytes
-  // this->bytes = std::vector<uint8_t>(out.cbegin(), out.cend());
+  if (tokens_opt) {
+    TPV::Parser parser{};
+
+    TPV::Test_Fn::print_tokens(*tokens_opt);
+    parser.load_tokens(*tokens_opt);
+    auto result = parser.parse();
+    parser.print_bytecodes();
+    if (result.err_msg.empty()) {
+      load_bytes(result.bytecodes);
+      eval_all();
+    } else {
+      for (auto&& i : result.err_msg) {
+        std::cout << i << "\n";
+      }
+    }
+  } else {
+    std::print(stderr, "Failed to scan file\n");
+    return false;
+  }
 
   return false;
 }
