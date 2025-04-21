@@ -7,10 +7,10 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <print>
 #include <string>
 #include <variant>
 #include <vector>
-#include <print>
 #include "../error_code.hpp"
 #include "../instructions.hpp"
 #include "../parser/parser.hpp"
@@ -18,7 +18,6 @@
 #include "../utils.hpp"
 #include "common.hpp"
 #include "value.hpp"
-
 
 using std::vector;
 
@@ -119,11 +118,10 @@ bool VM::load_bytes(const vector<uint8_t> instructions) {
       }
       default:
         current_frame.function->bytes.push_back(*it);
+        // next byte
+        it += 1;
         break;
     }
-
-    // next byte
-    it += 1;
   }
 
   return true;
